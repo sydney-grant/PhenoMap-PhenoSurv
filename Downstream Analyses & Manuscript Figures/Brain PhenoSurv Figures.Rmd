@@ -1,0 +1,681 @@
+---
+title: "FINAL Brain PhenoSurv Figures"
+author: "S. Grant"
+date: "2025-05-27"
+output: html_document
+---
+
+(A) concordance index of PhenoSurv and previously published models with pathway and genomic data
+
+```{r}
+data <- read.csv("~//Documents//Survival VAE//Lung & Brain Final Model CIs.csv")
+
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(5)
+data$Class <- factor(data$Class, levels = c("RSF (Genomic)", "RSF (Pathway Scores)", "DeepSurv (Genomic)",
+                                            "DeepSurv (Pathway Scores)", "PhenoSurv"))
+
+brain_msk_cis <- ggplot(subset(data, Dataset == "MSK" & Cancer_Type == "Brain"), aes(fill = Class, y = CI, x = Class)) +
+  geom_boxplot(position=position_dodge(1)) +
+  theme_classic() +
+  scale_fill_manual(values = mycolors) +
+  facet_wrap(~Dataset) +
+    xlab("Model") +
+  ylab("Concordance Index") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1), axis.text = element_text(size = 12),
+        axis.title = element_text(size = 12), strip.text = element_text(size = 14)) +
+  
+  geom_signif(
+    comparisons = list(c("DeepSurv (Genomic)", "PhenoSurv")),
+    y_position =0.9, tip_length = 0.01, vjust = 0.2,
+    map_signif_level = TRUE,
+    test = "t.test",
+    size = 0.4,
+    textsize = 4
+  )+
+  geom_signif(
+    comparisons = list(c("DeepSurv (Pathway Scores)", "PhenoSurv")),
+    y_position =0.87, tip_length = 0.01, vjust = 0.2,
+    map_signif_level = TRUE,
+    test = "t.test",
+    size = 0.4,
+    textsize = 4
+  )
+  
+
+
+
+brain_msk_cis
+
+
+brain_tcga_cis <- ggplot(subset(data, Dataset == "TCGA" & Cancer_Type == "Brain"), aes(fill = Class, y = CI, x = Class)) +
+  geom_boxplot(position=position_dodge(1)) +
+  theme_classic() +
+  scale_fill_manual(values = mycolors) +
+    xlab("Model") +
+  ylab("Concordance Index") +
+  facet_wrap(~Dataset) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1), axis.text = element_text(size = 12),
+        axis.title = element_text(size = 12), strip.text = element_text(size = 14)) 
+
+brain_tcga_cis
+```
+
+
+```{r}
+print(mean(subset(data, Class == "RSF (Genomic)" & Dataset == "TCGA" & Cancer_Type == "Brain")$CI))
+print(mean(subset(data, Class == "RSF (Pathway Scores)" & Dataset == "TCGA" & Cancer_Type == "Brain")$CI))
+print(mean(subset(data, Class == "DeepSurv (Genomic)" & Dataset == "TCGA" & Cancer_Type == "Brain")$CI))
+print(mean(subset(data, Class == "DeepSurv (Pathway Scores)" & Dataset == "TCGA" & Cancer_Type == "Brain")$CI))
+print(mean(subset(data, Class == "PhenoSurv" & Dataset == "TCGA" & Cancer_Type == "Brain")$CI))
+```
+```{r}
+print(mean(subset(data, Class == "RSF (Genomic)" & Dataset == "MSK" & Cancer_Type == "Brain")$CI))
+print(mean(subset(data, Class == "RSF (Pathway Scores)" & Dataset == "MSK" & Cancer_Type == "Brain")$CI))
+print(mean(subset(data, Class == "DeepSurv (Genomic)" & Dataset == "MSK" & Cancer_Type == "Brain")$CI))
+print(mean(subset(data, Class == "DeepSurv (Pathway Scores)" & Dataset == "MSK" & Cancer_Type == "Brain")$CI))
+print(mean(subset(data, Class == "PhenoSurv" & Dataset == "MSK" & Cancer_Type == "Brain")$CI))
+```
+
+
+```{r}
+pc <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_train_data_PC_FINAL.csv')
+msk <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_train_data_MSK_FINAL.csv')
+
+Scaler <- caret::preProcess(pc[,1:11], rangeBounds = c(-1,1),method = "range")
+pc_scaled = predict(Scaler,pc[,1:11])
+pc <- cbind(pc_scaled, pc[,12:13])
+
+Scaler <- caret::preProcess(msk[,1:11], rangeBounds = c(-1,1),method = "range")
+msk_scaled = predict(Scaler,msk[,1:11])
+msk <- cbind(msk_scaled, msk[,12:13])
+
+fit1_pc <- coxph(Surv(TIME, STATUS) ~ DNA_REPAIR, data = pc)
+fit2_pc <- coxph(Surv(TIME, STATUS) ~ EVADE_GROWTH_SUPPRESSORS, data = pc)
+fit3_pc <- coxph(Surv(TIME, STATUS) ~ HORMONE_SIGNALING, data = pc)
+fit4_pc <- coxph(Surv(TIME, STATUS) ~ IMMUNE, data = pc)
+fit5_pc <- coxph(Surv(TIME, STATUS) ~ INFLAMMATION, data = pc)
+fit6_pc <- coxph(Surv(TIME, STATUS) ~ PLASTICITY, data = pc)
+fit7_pc <- coxph(Surv(TIME, STATUS) ~ PROLIFERATION, data = pc)
+fit8_pc <- coxph(Surv(TIME, STATUS) ~ METASTASIS, data = pc)
+fit9_pc <- coxph(Surv(TIME, STATUS) ~ METABOLISM, data = pc)
+fit10_pc <- coxph(Surv(TIME, STATUS) ~ RESIST_CELL_DEATH, data = pc)
+fit11_pc <- coxph(Surv(TIME, STATUS) ~ VASCULATOR, data = pc)
+
+
+fit1_msk <- coxph(Surv(TIME, STATUS) ~ DNA_REPAIR, data = msk)
+fit2_msk <- coxph(Surv(TIME, STATUS) ~ EVADE_GROWTH_SUPPRESSORS, data = msk)
+fit3_msk <- coxph(Surv(TIME, STATUS) ~ HORMONE_SIGNALING, data = msk)
+fit4_msk <- coxph(Surv(TIME, STATUS) ~ IMMUNE, data = msk)
+fit5_msk <- coxph(Surv(TIME, STATUS) ~ INFLAMMATION, data = msk)
+fit6_msk <- coxph(Surv(TIME, STATUS) ~ PLASTICITY, data = msk)
+fit7_msk <- coxph(Surv(TIME, STATUS) ~ PROLIFERATION, data = msk)
+fit8_msk <- coxph(Surv(TIME, STATUS) ~ METASTASIS, data = msk)
+fit9_msk <- coxph(Surv(TIME, STATUS) ~ METABOLISM, data = msk)
+fit10_msk <- coxph(Surv(TIME, STATUS) ~ RESIST_CELL_DEATH, data = msk)
+fit11_msk <- coxph(Surv(TIME, STATUS) ~ VASCULATOR, data = msk)
+
+
+df_hr <- data.frame("Phenotype" = rep(c("DNA REPAIR", "EVADE GROWTH SUPPRESSORS", "HORMONE SIGNALING", "IMMUNE", "INFLAMMATION", "PLASTICITY",
+                                        "PROLIFERATION", "METASTASIS", "METABOLISM", "RESIST CELL DEATH", "VASCULATURE"),2),
+                    "Dataset" = c(rep("TCGA", 11), rep("MSK", 11)),
+                    "COEF" = c(1.4882, -1.3863, -1.7429, -1.9931, 1.1432, -2.1313, 2.2920, -1.6209, 2.0599, -2.2979, 2.4,
+                               2.2966, 1.4919, 2.7079, 2.7559, 1.0576, -2.0536, 2.5954, -0.6693, 1.4972, 0.4676, -2.90517),
+                    "SE" = c(0.1695, 0.1508, 0.1542, 0.2386, 0.1773, 0.2380, 0.2146, 0.1994, 0.1744, 0.2071, 0.218,
+                             0.2568, 0.2219, 0.2707, 0.2342, 0.1613, 0.2996, 0.2046, 0.2384, 0.1159, 0.1891, 0.29428))
+
+df_hr$COEF <- abs(df_hr$COEF)
+
+df_hr$Start <- df_hr$COEF - df_hr$SE
+df_hr$End <- df_hr$COEF + df_hr$SE
+
+brain_plot <- ggplot(df_hr, aes(y = Phenotype, color = Dataset, x = COEF, group = Dataset)) +
+  geom_point(aes(group = Dataset), position = position_dodge(width=0.75)) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_segment(aes(x = Start, xend = End, y = Phenotype, group = Dataset, color = Dataset), position = position_dodge(width=0.75)) +
+  theme_classic() +
+  xlab("Impact") +
+  ylab(NULL) +
+  scale_color_manual(values = c("#D81B60", "#1E88E5")) 
+```
+
+
+```{r}
+df_tcga <- subset(df_hr, Dataset == "TCGA")
+df_tcga <- df_tcga[order(-df_tcga$COEF),]
+df_tcga
+```
+
+```{r}
+df_msk <- subset(df_hr, Dataset == "MSK")
+df_msk <- df_msk[order(-df_msk$COEF),]
+df_msk
+```
+
+```{r}
+df_tcga$RANK_TCGA <- 1:11
+df_msk$RANK_MSK <- 1:11
+df_all <- merge(df_tcga[,c(1,3)], df_msk[,c(1,3)], by = "Phenotype")
+df_all$SUM <- apply(df_all[,2:3], 1, mean)
+
+df_all <- df_all[order(-df_all$SUM),]
+df_all[1:5,]
+```
+
+(C) mean SHAP values of top 5 pathways from each phenotype
+
+```{r}
+
+top = 100
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_dna_repair_MSK_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df1 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df1 <- df1[order(-df1$Mean_SHAP),]
+df1_msk <- df1[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_growth_suppressor_MSK_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df2 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df2 <- df2[order(-df2$Mean_SHAP),]
+df2_msk <- df2[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_hormone_signaling_MSK_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df3 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df3 <- df3[order(-df3$Mean_SHAP),]
+df3_msk <- df3[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_immune_MSK_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df4 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df4 <- df4[order(-df4$Mean_SHAP),]
+df4_msk <- df4[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_inflammation_MSK_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df5 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df5 <- df5[order(-df5$Mean_SHAP),]
+df5_msk <- df5[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_metabolism_MSK_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df6 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df6 <- df6[order(-df6$Mean_SHAP),]
+df6_msk <- df6[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_metastasis_MSK_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df7 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df7 <- df7[order(-df7$Mean_SHAP),]
+df7_msk <- df7[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_plasticity_MSK_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df8 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df8 <- df8[order(-df8$Mean_SHAP),]
+df8_msk <- df8[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_proliferation_MSK_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df9 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df9 <- df9[order(-df9$Mean_SHAP),]
+df9_msk <- df9[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_resist_cell_death_MSK_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df10 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df10 <- df10[order(-df10$Mean_SHAP),]
+df10_msk <- df10[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_vasculator_MSK_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df11 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df11 <- df11[order(-df11$Mean_SHAP),]
+df11_msk <- df11[1:top,]
+
+df1_msk$Group = "DNA REPAIR"
+df2_msk$Group = "EVADE GROWTH SUPPRESSORS"
+df3_msk$Group = "HORMONE SIGNALING"
+df4_msk$Group = "IMMUNE"
+df5_msk$Group = "INFLAMMATION"
+df6_msk$Group = "METABOLISM"
+df7_msk$Group = "METASTASIS"
+df8_msk$Group = "PLASTICITY"
+df9_msk$Group = "PROLIFERATION"
+df10_msk$Group = "RESIST CELL DEATH"
+df11_msk$Group = "VASCULATURE"
+
+df_pheno_msk <- rbind(df1_msk, df2_msk, df3_msk, df4_msk, df5_msk, df6_msk, df7_msk, df8_msk, df9_msk, df10_msk, df11_msk)
+df_pheno_msk2 <- rbind(df1_msk[1,], df2_msk[1,], df3_msk[1,], df4_msk[1,], df5_msk[1,], df6_msk[1,], df7_msk[1,], df8_msk[1,], df9_msk[1,], df10_msk[1,], df11_msk[1,])
+
+df_pheno_msk$Group <- as.factor(df_pheno_msk$Group)
+# Set a number of 'empty bar' to add at the end of each group
+empty_bar <- 1
+to_add <- data.frame( matrix(NA, empty_bar*nlevels(df_pheno_msk$Group), ncol(df_pheno_msk)) )
+colnames(to_add) <- colnames(df_pheno_msk)
+to_add$Group <- rep(levels(df_pheno_msk$Group), each=empty_bar)
+df_pheno_msk <- rbind(df_pheno_msk, to_add)
+df_pheno_msk <- df_pheno_msk %>% arrange(Group)
+df_pheno_msk$id <- seq(1, nrow(df_pheno_msk))
+
+# Get the name and the y position of each label
+label_data <- df_pheno_msk
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar     # I substract 0.5 because the letter must have the angle of the center of the bars. Not extreme right(1) or extreme left (0)
+label_data$hjust <- ifelse( angle < -90, 1, 0)
+label_data$angle <- ifelse(angle < -90, angle+180, angle)
+
+
+# prepare a data frame for base lines
+base_data <- df_pheno_msk %>% 
+  group_by(Group) %>% 
+  dplyr::summarize(start=min(id), end=max(id) - empty_bar) %>% 
+  rowwise() %>% 
+  mutate(title=mean(c(start, end)))
+
+# prepare a data frame for grid (scales)
+grid_data <- base_data
+grid_data$end <- grid_data$end[ c( nrow(grid_data), 1:nrow(grid_data)-1)] + 1
+grid_data$start <- grid_data$start - 1
+grid_data <- grid_data[-1,]
+
+
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(11)
+
+
+
+brain_msk <- ggplot(df_pheno_msk, aes(x=as.factor(id), y=Mean_SHAP, fill=Group)) +  
+  geom_bar(aes(x=as.factor(id), y=Mean_SHAP, fill=Group), stat="identity") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = unit(rep(-1,4), "cm")
+  ) +
+  coord_polar() +
+  scale_fill_manual(values = mycolors) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_segment(data=base_data, aes(x = start, y = -0.08, xend = end, yend = -0.08), colour = mycolors, alpha=1, size=2 , inherit.aes = FALSE ) 
+brain_msk
+
+
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_dna_repair_PC_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df1 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df1 <- df1[order(-df1$Mean_SHAP),]
+df1_pc <- df1[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_growth_suppressor_PC_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df2 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df2 <- df2[order(-df2$Mean_SHAP),]
+df2_pc <- df2[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_hormone_signaling_PC_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df3 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df3 <- df3[order(-df3$Mean_SHAP),]
+df3_pc <- df3[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_immune_PC_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df4 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df4 <- df4[order(-df4$Mean_SHAP),]
+df4_pc <- df4[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_inflammation_PC_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df5 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df5 <- df5[order(-df5$Mean_SHAP),]
+df5_pc <- df5[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_metabolism_PC_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df6 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df6 <- df6[order(-df6$Mean_SHAP),]
+df6_pc <- df6[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_metastasis_PC_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df7 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df7 <- df7[order(-df7$Mean_SHAP),]
+df7_pc <- df7[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_plasticity_PC_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df8 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df8 <- df8[order(-df8$Mean_SHAP),]
+df8_pc <- df8[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_proliferation_PC_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df9 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df9 <- df9[order(-df9$Mean_SHAP),]
+df9_pc <- df9[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_resist_cell_death_PC_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df10 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df10 <- df10[order(-df10$Mean_SHAP),]
+df10_pc <- df10[1:top,]
+
+shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_vasculator_PC_FINAL.csv')
+pathways <- shap_values$Pathway
+shap_values <- shap_values[,-ncol(shap_values)]
+shap_values <- apply(shap_values, 2, abs)
+shap_mean <- apply(shap_values, 1, mean)
+
+df11 <- data.frame("Pathway" = pathways, "Mean_SHAP" = shap_mean)
+df11 <- df11[order(-df11$Mean_SHAP),]
+df11_pc <- df11[1:top,]
+
+df1_pc$Group = "DNA REPAIR"
+df2_pc$Group = "EVADE GROWTH SUPPRESSORS"
+df3_pc$Group = "HORMONE SIGNALING"
+df4_pc$Group = "IMMUNE"
+df5_pc$Group = "INFLAMMATION"
+df6_pc$Group = "METABOLISM"
+df7_pc$Group = "METASTASIS"
+df8_pc$Group = "PLASTICITY"
+df9_pc$Group = "PROLIFERATION"
+df10_pc$Group = "RESIST CELL DEATH"
+df11_pc$Group = "VASCULATURE"
+
+df_pheno_pc <- rbind(df1_pc, df2_pc, df3_pc, df4_pc, df5_pc, df6_pc, df7_pc, df8_pc, df9_pc, df10_pc, df11_pc)
+df_pheno_pc2 <- rbind(df1_pc[1,], df2_pc[1,], df3_pc[1,], df4_pc[1,], df5_pc[1,], df6_pc[1,], df7_pc[1,], df8_pc[1,], df9_pc[1,], df10_pc[1,], df11_pc[1,])
+
+df_pheno_pc$Group <- as.factor(df_pheno_pc$Group)
+# Set a number of 'empty bar' to add at the end of each group
+empty_bar <- 1
+to_add <- data.frame( matrix(NA, empty_bar*nlevels(df_pheno_pc$Group), ncol(df_pheno_pc)) )
+colnames(to_add) <- colnames(df_pheno_pc)
+to_add$Group <- rep(levels(df_pheno_pc$Group), each=empty_bar)
+df_pheno_pc <- rbind(df_pheno_pc, to_add)
+df_pheno_pc <- df_pheno_pc %>% arrange(Group)
+df_pheno_pc$id <- seq(1, nrow(df_pheno_pc))
+
+# Get the name and the y position of each label
+label_data <- df_pheno_pc
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar     # I substract 0.5 because the letter must have the angle of the center of the bars. Not extreme right(1) or extreme left (0)
+label_data$hjust <- ifelse( angle < -90, 1, 0)
+label_data$angle <- ifelse(angle < -90, angle+180, angle)
+
+
+# prepare a data frame for base lines
+base_data <- df_pheno_pc %>% 
+  group_by(Group) %>% 
+  dplyr::summarize(start=min(id), end=max(id) - empty_bar) %>% 
+  rowwise() %>% 
+  mutate(title=mean(c(start, end)))
+
+# prepare a data frame for grid (scales)
+grid_data <- base_data
+grid_data$end <- grid_data$end[ c( nrow(grid_data), 1:nrow(grid_data)-1)] + 1
+grid_data$start <- grid_data$start - 1
+grid_data <- grid_data[-1,]
+
+brain_tcga <- ggplot(df_pheno_pc, aes(x=as.factor(id), y=Mean_SHAP, fill=Group)) +  
+  geom_bar(aes(x=as.factor(id), y=Mean_SHAP, fill=Group), stat="identity") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = unit(rep(-1,4), "cm")
+  ) +
+  coord_polar() +
+  scale_fill_manual(values = mycolors) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_segment(data=base_data, aes(x = start, y = -0.025, xend = end, yend = -0.025), colour = mycolors, alpha=1, size=2 , inherit.aes = FALSE ) 
+
+brain_tcga
+
+
+all_plots <- ggarrange(brain_tcga, brain_msk,  common.legend = TRUE, 
+                       ncol = 1, nrow = 2, legend = "left")
+all_plots
+
+```
+
+(D) SHAP values of top pathways shared by both TCGA and MSK models
+
+```{r}
+
+tcga_rank <- na.omit(df_pheno_pc[,c(1,2,3)])
+tcga_rank <- tcga_rank[order(-tcga_rank$Mean_SHAP),]
+
+msk_rank <- na.omit(df_pheno_msk[,c(1,2,3)])
+msk_rank <- msk_rank[order(-msk_rank$Mean_SHAP),]
+
+msk_rank2 <- data.frame()
+tcga_rank2 <- data.frame()
+both <- rbind(df_pheno_pc2, df_pheno_msk2)
+for (i in 1:nrow(both)){
+  msk_rank2 <- rbind(msk_rank2, subset(msk_rank, Pathway == both$Pathway[i] & Group == both$Group[[i]]))
+  tcga_rank2 <- rbind(tcga_rank2, subset(tcga_rank, Pathway == both$Pathway[i] & Group == both$Group[[i]]))
+}
+
+tcga_rank <- tcga_rank2
+msk_rank <- msk_rank2
+
+tcga_hormone_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_hormone_signaling_PC_FINAL.csv')
+tcga_hormone_shap_values <- subset(tcga_hormone_shap_values, Pathway %in% subset(tcga_rank, Group == "HORMONE SIGNALING")$Pathway)
+tcga_growth_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_growth_suppressor_PC_FINAL.csv')
+tcga_growth_shap_values <- subset(tcga_growth_shap_values, Pathway %in% subset(tcga_rank, Group == "EVADE GROWTH SUPPRESSORS")$Pathway)
+tcga_proliferation_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_proliferation_PC_FINAL.csv')
+tcga_proliferation_shap_values <- subset(tcga_proliferation_shap_values, Pathway %in% subset(tcga_rank, Group == "PROLIFERATION")$Pathway)
+tcga_resist_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_resist_cell_death_PC_FINAL.csv')
+tcga_resist_shap_values <- subset(tcga_resist_shap_values, Pathway %in% subset(tcga_rank, Group == "RESIST CELL DEATH")$Pathway)
+tcga_immune_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_immune_PC_FINAL.csv')
+tcga_immune_shap_values <- subset(tcga_immune_shap_values, Pathway %in% subset(tcga_rank, Group == "IMMUNE")$Pathway)
+tcga_vasculature_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_vasculator_PC_FINAL.csv')
+tcga_vasculature_shap_values <- subset(tcga_vasculature_shap_values, Pathway %in% subset(tcga_rank, Group == "VASCULATURE")$Pathway)
+tcga_metastasis_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_metastasis_PC_FINAL.csv')
+tcga_metastasis_shap_values <- subset(tcga_metastasis_shap_values, Pathway %in% subset(tcga_rank, Group == "METASTASIS")$Pathway)
+tcga_dna_repair_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_dna_repair_PC_FINAL.csv')
+tcga_dna_repair_shap_values <- subset(tcga_dna_repair_shap_values, Pathway %in% subset(tcga_rank, Group == "DNA REPAIR")$Pathway)
+tcga_inflammation_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_inflammation_PC_FINAL.csv')
+tcga_inflammation_shap_values <- subset(tcga_inflammation_shap_values, Pathway %in% subset(tcga_rank, Group == "INFLAMMATION")$Pathway)
+tcga_plasticity_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_plasticity_PC_FINAL.csv')
+tcga_plasticity_shap_values <- subset(tcga_plasticity_shap_values, Pathway %in% subset(tcga_rank, Group == "PLASTICITY")$Pathway)
+tcga_metabolism_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_metabolism_PC_FINAL.csv')
+tcga_metabolism_shap_values <- subset(tcga_metabolism_shap_values, Pathway %in% subset(tcga_rank, Group == "METABOLISM")$Pathway)
+
+tcga_shap_values <- rbind(tcga_hormone_shap_values, tcga_dna_repair_shap_values, tcga_growth_shap_values, tcga_immune_shap_values,
+                          tcga_inflammation_shap_values, tcga_metabolism_shap_values, tcga_metastasis_shap_values, 
+                          tcga_plasticity_shap_values, tcga_proliferation_shap_values, tcga_resist_shap_values, tcga_vasculature_shap_values)
+
+tcga_shap_values2 <- data.frame()
+for (i in 1:nrow(tcga_shap_values)){
+  row <- data.frame("Pathway" = tcga_shap_values$Pathway[i], "SHAP" = as.numeric(tcga_shap_values[i,-ncol(tcga_shap_values)]))
+  tcga_shap_values2 <- rbind(tcga_shap_values2, row)
+}
+
+tcga_shap_values2 <- merge(tcga_shap_values2, tcga_rank[,-2], by = "Pathway")
+tcga_shap_values2$Dataset <- "TCGA"
+
+
+
+msk_hormone_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_hormone_signaling_MSK_FINAL.csv')
+msk_hormone_shap_values <- subset(msk_hormone_shap_values, Pathway %in% subset(tcga_rank, Group == "HORMONE SIGNALING")$Pathway)
+msk_growth_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_growth_suppressor_MSK_FINAL.csv')
+msk_growth_shap_values <- subset(msk_growth_shap_values, Pathway %in% subset(tcga_rank, Group == "EVADE GROWTH SUPPRESSORS")$Pathway)
+msk_proliferation_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_proliferation_MSK_FINAL.csv')
+msk_proliferation_shap_values <- subset(msk_proliferation_shap_values, Pathway %in% subset(tcga_rank, Group == "PROLIFERATION")$Pathway)
+msk_resist_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_resist_cell_death_MSK_FINAL.csv')
+msk_resist_shap_values <- subset(msk_resist_shap_values, Pathway %in% subset(tcga_rank, Group == "RESIST CELL DEATH")$Pathway)
+msk_immune_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_immune_MSK_FINAL.csv')
+msk_immune_shap_values <- subset(msk_immune_shap_values, Pathway %in% subset(tcga_rank, Group == "IMMUNE")$Pathway)
+msk_vasculature_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_vasculator_MSK_FINAL.csv')
+msk_vasculature_shap_values <- subset(msk_vasculature_shap_values, Pathway %in% subset(tcga_rank, Group == "VASCULATURE")$Pathway)
+msk_metastasis_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_metastasis_MSK_FINAL.csv')
+msk_metastasis_shap_values <- subset(msk_metastasis_shap_values, Pathway %in% subset(tcga_rank, Group == "METASTASIS")$Pathway)
+msk_dna_repair_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_dna_repair_MSK_FINAL.csv')
+msk_dna_repair_shap_values <- subset(msk_dna_repair_shap_values, Pathway %in% subset(tcga_rank, Group == "DNA REPAIR")$Pathway)
+msk_inflammation_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_inflammation_MSK_FINAL.csv')
+msk_inflammation_shap_values <- subset(msk_inflammation_shap_values, Pathway %in% subset(tcga_rank, Group == "INFLAMMATION")$Pathway)
+msk_plasticity_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_plasticity_MSK_FINAL.csv')
+msk_plasticity_shap_values <- subset(msk_plasticity_shap_values, Pathway %in% subset(tcga_rank, Group == "PLASTICITY")$Pathway)
+msk_metabolism_shap_values <- read.csv('~//Documents//Survival VAE//FINAL PHENOSURV//brain_test_shapvalues_metabolism_MSK_FINAL.csv')
+msk_metabolism_shap_values <- subset(msk_metabolism_shap_values, Pathway %in% subset(tcga_rank, Group == "METABOLISM")$Pathway)
+
+msk_shap_values <- rbind(msk_hormone_shap_values, msk_dna_repair_shap_values, msk_growth_shap_values, msk_immune_shap_values,
+                         msk_inflammation_shap_values, msk_metabolism_shap_values, msk_metastasis_shap_values, 
+                         msk_plasticity_shap_values, msk_proliferation_shap_values, msk_resist_shap_values, msk_vasculature_shap_values)
+
+msk_shap_values2 <- data.frame()
+for (i in 1:nrow(msk_shap_values)){
+  row <- data.frame("Pathway" = msk_shap_values$Pathway[i], "SHAP" = as.numeric(msk_shap_values[i,-ncol(msk_shap_values)]))
+  msk_shap_values2 <- rbind(msk_shap_values2, row)
+}
+
+msk_shap_values2 <- merge(msk_shap_values2, msk_rank[,-2], by = "Pathway")
+msk_shap_values2$Dataset <- "MSK"
+
+shap_values <- rbind(tcga_shap_values2, msk_shap_values2)
+shap_values.rm <- rbind(subset(shap_values, Pathway  == "REACTOME_TP53_REGULATES_TRANSCRIPTION_OF_CASPASE_ACTIVATORS_AND_CASPASES" & Group == "RESIST CELL DEATH"),
+                        subset(shap_values, Pathway  == "REACTOME_SIGNALING_BY_TGF_BETA_RECEPTOR_COMPLEX_IN_CANCER" & Group == "PROLIFERATION"))
+shap_values <- dplyr::setdiff(shap_values, shap_values.rm)
+
+
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(11)
+color_df <- data.frame("Group" = c("DNA REPAIR", "EVADE GROWTH SUPPRESSORS", "HORMONE SIGNALING",
+                                   "IMMUNE", "INFLAMMATION", "METABOLISM", "METASTASIS",
+                                   "PLASTICITY", "PROLIFERATION", "RESIST CELL DEATH",
+                                   "VASCULATURE"),
+                       "Color" = mycolors)
+
+shap_values$Group <- factor(shap_values$Group, 
+                            levels = c("DNA REPAIR", "EVADE GROWTH SUPPRESSORS", "HORMONE SIGNALING",
+                                       "IMMUNE", "INFLAMMATION", "METABOLISM", "METASTASIS",
+                                       "PLASTICITY", "PROLIFERATION", "RESIST CELL DEATH",
+                                       "VASCULATURE"))
+new_pathway <- c()
+for (i in 1:nrow(shap_values)){
+  split <- strsplit(shap_values$Pathway[i], split = "_")
+  new_split <- split[[1]][-1]
+  new_split <- paste0(new_split, collapse = "_")
+  new_pathway <- c(new_pathway, new_split)
+}
+
+shap_values$Pathway <- new_pathway
+
+shap_values$Pathway[shap_values$Pathway == "DEX_H_BOX_HELICASES_ACTIVATE_TYPE_I_IFN_AND_INFLAMMATORY_CYTOKINES_PRODUCTION"] <- "DEX_H_BOX_HELICASES_ACTIVATE_IFN_AND_INFLAMMATORY_CYTOKINES"
+shap_values$Pathway[shap_values$Pathway == "ACTIVATED_PKN1_STIMULATES_TRANSCRIPTION_OF_AR_ANDROGEN_RECEPTOR_REGULATED_GENES_KLK2_AND_KLK3"] <- "ACTIVATED_PKN1_STIMULATES_TRANSCRIPTION_OF_KLK2_AND_KLK3"
+shap_values$Pathway[shap_values$Pathway == "CASPASE_ACTIVATION_VIA_DEATH_RECEPTORS_IN_THE_PRESENCE_OF_LIGAND"] <- "CASPASE_ACTIVATION_VIA_DEATH_RECEPTORS"
+shap_values$Pathway[shap_values$Pathway == "TGF_BETA_RECEPTOR_SIGNALING_IN_EMT_EPITHELIAL_TO_MESENCHYMAL_TRANSITION"] <- "TGF_BETA_RECEPTOR_SIGNALING_IN_EMT"
+
+mean <- c()
+for (path in unique(shap_values$Pathway)){
+  sub <- subset(shap_values, Pathway == path)
+  mean <- c(mean, mean(abs(sub$SHAP)))
+}
+
+rank <- data.frame("Pathway" = unique(shap_values$Pathway),
+                   "Mean" = mean)
+rank <- rank[order(-rank$Mean),]
+
+shap_values$Pathway <- factor(shap_values$Pathway, levels = rev(rank$Pathway))
+
+brain_plot <- ggplot(shap_values, aes(x = SHAP, y = Pathway, color = Group)) +
+  geom_point(aes(color = Group), position = position_dodge2(width = 0.2, preserve = "total")) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  scale_color_manual(values = subset(color_df, Group %in% shap_values$Group)$Color)
+```
+
+
+```{r}
+
+```
+
+
+

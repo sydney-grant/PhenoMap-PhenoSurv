@@ -1,0 +1,1442 @@
+---
+title: "New Figure 4"
+author: "S. Grant"
+date: "2025-07-21"
+output: html_document
+---
+
+```{r}
+library(ComplexHeatmap)
+library(survival)
+library(survminer)
+```
+
+
+
+run to load all calculated and real pathway scores
+```{r}
+####################
+# run to load all calculated and real pathway scores
+####################
+hallmark_predicted <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split1_hallmark.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split2_hallmark.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split3_hallmark.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split4_hallmark.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split5_hallmark.csv"))[-1,]
+hallmark_real <- read.csv("~//Documents//Survival VAE//Pathway Scores//GSVA_Results_PANCAN_Hallmark.csv")
+hallmark_predicted <- hallmark_predicted[,-1]
+colnames(hallmark_predicted) <- c("PatientID", hallmark_real$X)
+
+hallmark_real <- as.data.frame(t(hallmark_real))
+colnames(hallmark_real) <- hallmark_real[1,]
+hallmark_real <- hallmark_real[-1,]
+hallmark_real <- cbind(data.frame("PatientID" = substr(gsub("[.]", "-", rownames(hallmark_real)), 1, 12)), hallmark_real)
+hallmark_real <- subset(hallmark_real, PatientID %in% hallmark_predicted$PatientID)
+
+## remove patients with multiple samples
+multiple_samples <- as.data.frame(table(hallmark_real$PatientID))
+multiple_samples <- subset(multiple_samples, Freq > 1)$Var1
+
+hallmark_real_fix <- subset(hallmark_real, PatientID %in% multiple_samples)
+hallmark_real_keep <- dplyr::setdiff(hallmark_real, hallmark_real_fix)
+
+hallmark_real_fixed <- data.frame()
+for (pt in multiple_samples){
+  sub <- subset(hallmark_real_fix, PatientID == pt)
+  hallmark_real_fixed <- rbind(hallmark_real_fixed, sub[1,])
+}
+
+hallmark_real <- rbind(hallmark_real_keep, hallmark_real_fixed)
+
+hallmark_real <- hallmark_real %>%
+  arrange(PatientID, hallmark_predicted$PatientID)
+hallmark_predicted <- hallmark_predicted %>%
+  arrange(PatientID, hallmark_real$PatientID)
+
+c2_predicted <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split1.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split2.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split3.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split4.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split5.csv"))[-1,]
+c2_real <- read.csv("~//Documents//Survival VAE//GSVA_Results_PANCAN.csv")
+c2_real <- c2_real[grepl("REACTOME", c2_real$X),]
+c2_predicted <- c2_predicted[,-1]
+colnames(c2_predicted) <- c("PatientID", c2_real$X)
+
+c2_real <- as.data.frame(t(c2_real))
+colnames(c2_real) <- c2_real[1,]
+c2_real <- c2_real[-1,]
+c2_real <- cbind(data.frame("PatientID" = substr(gsub("[.]", "-", rownames(c2_real)), 1, 12)), c2_real)
+c2_real <- subset(c2_real, PatientID %in% c2_predicted$PatientID)
+
+## remove patients with multiple samples
+multiple_samples <- as.data.frame(table(c2_real$PatientID))
+multiple_samples <- subset(multiple_samples, Freq > 1)$Var1
+
+c2_real_fix <- subset(c2_real, PatientID %in% multiple_samples)
+c2_real_keep <- dplyr::setdiff(c2_real, c2_real_fix)
+
+c2_real_fixed <- data.frame()
+for (pt in multiple_samples){
+  sub <- subset(c2_real_fix, PatientID == pt)
+  c2_real_fixed <- rbind(c2_real_fixed, sub[1,])
+}
+
+c2_real <- rbind(c2_real_keep, c2_real_fixed)
+
+c2_real <- c2_real %>%
+  arrange(PatientID, c2_predicted$PatientID)
+c2_predicted <- c2_predicted %>%
+  arrange(PatientID, c2_real$PatientID)
+
+reactome_real <- c2_real
+reactome_predicted <- c2_predicted
+
+c2_predicted <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split1_kegg.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split2_kegg.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split3_kegg.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split4_kegg.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split5_kegg.csv"))[-1,]
+c2_real <- read.csv("~//Documents//Survival VAE//GSVA_Results_PANCAN.csv")
+c2_real <- c2_real[grepl("KEGG", c2_real$X),]
+c2_predicted <- c2_predicted[,-1]
+colnames(c2_predicted) <- c("PatientID", c2_real$X)
+
+c2_real <- as.data.frame(t(c2_real))
+colnames(c2_real) <- c2_real[1,]
+c2_real <- c2_real[-1,]
+c2_real <- cbind(data.frame("PatientID" = substr(gsub("[.]", "-", rownames(c2_real)), 1, 12)), c2_real)
+c2_real <- subset(c2_real, PatientID %in% c2_predicted$PatientID)
+
+## remove patients with multiple samples
+multiple_samples <- as.data.frame(table(c2_real$PatientID))
+multiple_samples <- subset(multiple_samples, Freq > 1)$Var1
+
+c2_real_fix <- subset(c2_real, PatientID %in% multiple_samples)
+c2_real_keep <- dplyr::setdiff(c2_real, c2_real_fix)
+
+c2_real_fixed <- data.frame()
+for (pt in multiple_samples){
+  sub <- subset(c2_real_fix, PatientID == pt)
+  c2_real_fixed <- rbind(c2_real_fixed, sub[1,])
+}
+
+c2_real <- rbind(c2_real_keep, c2_real_fixed)
+
+c2_real <- c2_real %>%
+  arrange(PatientID, c2_predicted$PatientID)
+c2_predicted <- c2_predicted %>%
+  arrange(PatientID, c2_real$PatientID)
+
+kegg_real <- c2_real
+kegg_predicted <- c2_predicted
+
+c7_predicted <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_test_predictions_FINAL_all_split1.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_test_predictions_FINAL_all_split2.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_test_predictions_FINAL_all_split3.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_test_predictions_FINAL_all_split4.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_test_predictions_FINAL_all_split5.csv"))[-1,]
+c7_real <- read.csv("~//Documents//Survival VAE//Pathway Scores//GSVA_Results_PANCAN_C7.csv")
+c7_predicted <- c7_predicted[,-1]
+colnames(c7_predicted) <- c("PatientID", c7_real$X)
+
+c7_real <- as.data.frame(t(c7_real))
+colnames(c7_real) <- c7_real[1,]
+c7_real <- c7_real[-1,]
+c7_real <- cbind(data.frame("PatientID" = substr(gsub("[.]", "-", rownames(c7_real)), 1, 12)), c7_real)
+c7_real <- subset(c7_real, PatientID %in% c7_predicted$PatientID)
+
+## remove patients with multiple samples
+multiple_samples <- as.data.frame(table(c7_real$PatientID))
+multiple_samples <- subset(multiple_samples, Freq > 1)$Var1
+
+c7_real_fix <- subset(c7_real, PatientID %in% multiple_samples)
+c7_real_keep <- dplyr::setdiff(c7_real, c7_real_fix)
+
+c7_real_fixed <- data.frame()
+for (pt in multiple_samples){
+  sub <- subset(c7_real_fix, PatientID == pt)
+  c7_real_fixed <- rbind(c7_real_fixed, sub[1,])
+}
+
+c7_real <- rbind(c7_real_keep, c7_real_fixed)
+
+c7_real <- c7_real %>%
+  arrange(PatientID, c7_predicted$PatientID)
+c7_predicted <- c7_predicted %>%
+  arrange(PatientID, c7_real$PatientID)
+```
+
+```{r}
+all_paths_real <- merge(hallmark_real, reactome_real, by = "PatientID")
+all_paths_real <- merge(all_paths_real, kegg_real, by = "PatientID")
+#all_paths_real <- merge(all_paths_real, c7_real, by = "PatientID")
+
+all_paths_predicted <- merge(hallmark_predicted, reactome_predicted, by = "PatientID")
+all_paths_predicted <- merge(all_paths_predicted, kegg_predicted, by = "PatientID")
+#all_paths_predicted <- merge(all_paths_predicted, c7_predicted, by = "PatientID")
+
+```
+
+
+```{r}
+pam_pathways <- c("HALLMARK_PI3K_AKT_MTOR_SIGNALING", "REACTOME_NEGATIVE_REGULATION_OF_THE_PI3K_AKT_NETWORK",
+                  "REACTOME_PI3K_AKT_ACTIVATION", "REACTOME_PI3K_AKT_SIGNALING_IN_CANCER", "REACTOME_MTOR_SIGNALLING",
+                  "KEGG_MTOR_SIGNALING_PATHWAY")
+
+
+her2_pathways <- c("REACTOME_DOWNREGULATION_OF_ERBB2_SIGNALING", "REACTOME_SIGNALING_BY_ERBB2",
+                   "REACTOME_SIGNALING_BY_ERBB2_IN_CANCER", "REACTOME_EGFR_DOWNREGULATION",
+                   "REACTOME_SIGNALING_BY_EGFR", "REACTOME_SIGNALING_BY_EGFR_IN_CANCER")
+
+cdk46_pathways <- c("REACTOME_ABERRANT_REGULATION_OF_MITOTIC_G1_S_TRANSITION_IN_CANCER_DUE_TO_RB1_DEFECTS",
+                    "REACTOME_G1_S_SPECIFIC_TRANSCRIPTION")
+
+all_pathways <- unique(c(pam_pathways, her2_pathways, cdk46_pathways))
+her2_real <- all_paths_real[,c("PatientID", all_pathways)]
+her2_predicted <- all_paths_predicted[,c("PatientID", all_pathways)]
+
+clin <- read.csv("~//Documents//Survival VAE//PANCAN_ALL_CLinical.csv")[,-1]
+breast_clin <- subset(clin, acronym == "BRCA")
+
+br_her2_real <- subset(her2_real, PatientID %in% breast_clin$bcr_patient_barcode)
+br_her2_predicted <- subset(her2_predicted, PatientID %in% breast_clin$bcr_patient_barcode)
+```
+
+
+
+```{r}
+library(factoextra)
+set.seed(1)
+br_her2_real[,-1] <- apply(br_her2_real[,-1], 2, as.numeric)
+
+br_her2_real[,-1] <- scale(br_her2_real[,-1])
+
+br_her2.pca.real <- prcomp(br_her2_real[,-1], center = TRUE, scale = F)
+fviz_eig(br_her2.pca.real)
+```
+
+```{r}
+set.seed(1)
+br_km_her2_real <- kmeans(br_her2_real[,-1], centers = 5)
+
+br_pca_df_real <- data.frame("PC1" = br_her2.pca.real$x[,1], "PC2" = br_her2.pca.real$x[,2], "Cluster" = as.factor(br_km_her2_real$cluster))
+
+
+br_her2_real$Cluster <- as.factor(br_km_her2_real$cluster)
+
+ht1 <- Heatmap(t(subset(br_her2_real, Cluster == "1")[,-c(1,ncol(br_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+ht2 <- Heatmap(t(subset(br_her2_real, Cluster == "2")[,-c(1,ncol(br_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+ht3 <- Heatmap(t(subset(br_her2_real, Cluster == "3")[,-c(1,ncol(br_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+ht4 <- Heatmap(t(subset(br_her2_real, Cluster == "4")[,-c(1,ncol(br_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+ht5 <- Heatmap(t(subset(br_her2_real, Cluster == "5")[,-c(1,ncol(br_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+```
+
+```{r}
+ht1+ht2+ht3+ht4+ht5
+```
+
+```{r}
+loadings <- data.frame(br_her2.pca.real$rotation)
+loadings <- loadings[order(-loadings$PC1),]
+```
+
+
+```{r}
+
+avg_df <- data.frame("Pathway" = c(rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(br_her2_real, Cluster == 1))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(br_her2_real, Cluster == 1))),
+                                   rep("REACTOME_G1_S_SPECIFIC_TRANSCRIPTION", nrow(subset(br_her2_real, Cluster == 1))),
+                                   
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(br_her2_real, Cluster == 2))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(br_her2_real, Cluster == 2))),
+                                   rep("REACTOME_G1_S_SPECIFIC_TRANSCRIPTION", nrow(subset(br_her2_real, Cluster == 2))),
+
+                                   
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(br_her2_real, Cluster == 3))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(br_her2_real, Cluster == 3))),
+                                   rep("REACTOME_G1_S_SPECIFIC_TRANSCRIPTION", nrow(subset(br_her2_real, Cluster == 3))),
+
+                                   
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(br_her2_real, Cluster == 4))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(br_her2_real, Cluster == 4))),
+                                   rep("REACTOME_G1_S_SPECIFIC_TRANSCRIPTION", nrow(subset(br_her2_real, Cluster == 4))),
+
+                                   
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(br_her2_real, Cluster == 5))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(br_her2_real, Cluster == 5))),
+                                   rep("REACTOME_G1_S_SPECIFIC_TRANSCRIPTION", nrow(subset(br_her2_real, Cluster == 5)))),
+
+                     "Mean" = c(subset(br_her2_real, Cluster == 1)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(br_her2_real, Cluster == 1)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(br_her2_real, Cluster == 1)$REACTOME_G1_S_SPECIFIC_TRANSCRIPTION,
+
+                                
+                                subset(br_her2_real, Cluster == 2)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(br_her2_real, Cluster == 2)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(br_her2_real, Cluster == 2)$REACTOME_G1_S_SPECIFIC_TRANSCRIPTION,
+
+                                
+                                subset(br_her2_real, Cluster == 3)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(br_her2_real, Cluster == 3)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(br_her2_real, Cluster == 3)$REACTOME_G1_S_SPECIFIC_TRANSCRIPTION,
+
+                                
+                                subset(br_her2_real, Cluster == 4)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(br_her2_real, Cluster == 4)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(br_her2_real, Cluster == 4)$REACTOME_G1_S_SPECIFIC_TRANSCRIPTION,
+
+                                
+                                subset(br_her2_real, Cluster == 5)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(br_her2_real, Cluster == 5)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(br_her2_real, Cluster == 5)$REACTOME_G1_S_SPECIFIC_TRANSCRIPTION),
+
+                     "Cluster" = c(rep("Cluster 1",nrow(subset(br_her2_real, Cluster == 1))*3), rep("Cluster 2",nrow(subset(br_her2_real, Cluster == 2))*3),
+                                   rep("Cluster 3",nrow(subset(br_her2_real, Cluster == 3))*3),
+                                   rep("Cluster 4",nrow(subset(br_her2_real, Cluster == 4))*3),
+                                   rep("Cluster 5",nrow(subset(br_her2_real, Cluster == 5))*3)))
+
+```
+
+```{r}
+my_comparisons <- list(c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_PI3K_AKT_ACTIVATION"), c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_G1_S_SPECIFIC_TRANSCRIPTION"), c("REACTOME_PI3K_AKT_ACTIVATION", "REACTOME_G1_S_SPECIFIC_TRANSCRIPTION"))
+
+gsva_boxplot <- ggplot(avg_df, aes(x = Pathway, y = Mean, fill = Pathway)) +
+  geom_boxplot(position = "dodge") +
+  facet_wrap(~Cluster, nrow = 1) +
+    stat_compare_means(comparisons = my_comparisons) +
+  scale_x_continuous(limits = c(-5, 6.5), breaks = c(-5, -2.5, 0, 2.5, 5)) +
+  geom_hline(yintercept = 0, color = "gray", linetype = "dashed") +
+  ggtitle("GSVA") +
+  theme_classic()+
+  ylab("Score") +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5))+
+  scale_fill_manual(values = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF")) 
+
+  
+```
+
+```{r}
+my_comparisons <- list(c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_PI3K_AKT_ACTIVATION"), c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_G1_S_SPECIFIC_TRANSCRIPTION"), c("REACTOME_PI3K_AKT_ACTIVATION", "REACTOME_G1_S_SPECIFIC_TRANSCRIPTION"))
+
+avg_df$Group <- "EGFR Signaling High"
+avg_df$Group[avg_df$Cluster %in% c("Cluster 1","Cluster 2")] <- "PI3K Signaling High"
+avg_df$Group[avg_df$Cluster %in% c("Cluster 4", "Cluster 5")] <- "CDK4/6 Signaling High"
+
+
+gsva_boxplot_new <- ggplot(avg_df, aes(x = Pathway, y = Mean, fill = Pathway)) +
+  geom_boxplot(position = "dodge") +
+  facet_wrap(~Group, nrow = 1) +
+    stat_compare_means(comparisons = my_comparisons) +
+    stat_compare_means(comparisons = my_comparisons) +
+  scale_y_continuous(limits = c(-5, 6.5), breaks = c(-5, -2.5, 0, 2.5, 5)) +
+  geom_hline(yintercept = 0, color = "gray", linetype = "dashed") +
+  ggtitle("GSVA") +
+  theme_classic()+
+  ylab("Score") +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5, size = 16),
+        strip.text = element_text(size = 16), axis.text.y = element_text(size = 16), axis.title.y = element_text(size = 16))+
+  scale_fill_manual(values = c("#D81B60", "#1E88E5", "#FFC107")) 
+
+  
+```
+
+```{r}
+br_pca_df_real$Group <- "EGFR Signaling High"
+br_pca_df_real$Group[br_pca_df_real$Cluster %in% c(1,2)] <- "PI3K Signaling High"
+br_pca_df_real$Group[br_pca_df_real$Cluster %in% c(4,5)] <- "CDK4/6 Signaling High"
+
+gsva_pca <- ggplot(br_pca_df_real, aes(x = PC1, y = PC2, color = Group)) +
+                  geom_point() +
+                  theme_classic() +
+                  ggtitle("GSVA") +
+                  theme(plot.title = element_text(hjust = 0.5))+
+                  scale_color_manual(values = c("#D81B60",  "#FFC107", "#1E88E5"))
+```
+
+Predicted Scores
+
+```{r}
+set.seed(1)
+br_her2_predicted[,-1] <- apply(br_her2_predicted[,-1], 2, as.numeric)
+
+br_her2_predicted[,-1] <- scale(br_her2_predicted[,-1])
+
+br_her2.pca.predicted <- prcomp(br_her2_predicted[,-1], center = TRUE, scale = F)
+fviz_eig(br_her2.pca.predicted)
+```
+
+```{r}
+set.seed(1)
+br_km_her2_predicted <- kmeans(br_her2_predicted[,-1], centers = 5)
+
+br_pca_df_predicted <- data.frame("PC1" = br_her2.pca.predicted$x[,1], "PC2" = br_her2.pca.predicted$x[,2], "Cluster" = as.factor(br_km_her2_predicted$cluster))
+
+
+br_her2_predicted$Cluster <- as.factor(br_km_her2_predicted$cluster)
+#Cluster = HeatmapAnnotation(Cluster = br_her2_predicted$Cluster,
+#                            col = list(Cluster = c("2" = "#D81B60",
+#                                                   "1" = "#1E88E5",
+#                                                   "3" = "#FFC107",
+#                                                   "4" = "#789E8C",
+#                                                   "5" = "#685CAF")))
+
+ht1 <- Heatmap(t(subset(br_her2_predicted, Cluster == "1")[,-c(1,ncol(br_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+ht2 <- Heatmap(t(subset(br_her2_predicted, Cluster == "2")[,-c(1,ncol(br_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+ht3 <- Heatmap(t(subset(br_her2_predicted, Cluster == "3")[,-c(1,ncol(br_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+ht4 <- Heatmap(t(subset(br_her2_predicted, Cluster == "4")[,-c(1,ncol(br_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+ht5 <- Heatmap(t(subset(br_her2_predicted, Cluster == "5")[,-c(1,ncol(br_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+```
+
+
+```{r}
+avg_df <- data.frame("Pathway" = c(rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(br_her2_predicted, Cluster == 1))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(br_her2_predicted, Cluster == 1))),
+                                   rep("REACTOME_G1_S_SPECIFIC_TRANSCRIPTION", nrow(subset(br_her2_predicted, Cluster == 1))),
+                                   
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(br_her2_predicted, Cluster == 2))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(br_her2_predicted, Cluster == 2))),
+                                   rep("REACTOME_G1_S_SPECIFIC_TRANSCRIPTION", nrow(subset(br_her2_predicted, Cluster == 2))),
+
+                                   
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(br_her2_predicted, Cluster == 3))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(br_her2_predicted, Cluster == 3))),
+                                   rep("REACTOME_G1_S_SPECIFIC_TRANSCRIPTION", nrow(subset(br_her2_predicted, Cluster == 3))),
+
+                                   
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(br_her2_predicted, Cluster == 4))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(br_her2_predicted, Cluster == 4))),
+                                   rep("REACTOME_G1_S_SPECIFIC_TRANSCRIPTION", nrow(subset(br_her2_predicted, Cluster == 4))),
+
+                                   
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(br_her2_predicted, Cluster == 5))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(br_her2_predicted, Cluster == 5))),
+                                   rep("REACTOME_G1_S_SPECIFIC_TRANSCRIPTION", nrow(subset(br_her2_predicted, Cluster == 5)))),
+
+                     "Mean" = c(subset(br_her2_predicted, Cluster == 1)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(br_her2_predicted, Cluster == 1)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(br_her2_predicted, Cluster == 1)$REACTOME_G1_S_SPECIFIC_TRANSCRIPTION,
+
+                                
+                                subset(br_her2_predicted, Cluster == 2)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(br_her2_predicted, Cluster == 2)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(br_her2_predicted, Cluster == 2)$REACTOME_G1_S_SPECIFIC_TRANSCRIPTION,
+
+                                
+                                subset(br_her2_predicted, Cluster == 3)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(br_her2_predicted, Cluster == 3)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(br_her2_predicted, Cluster == 3)$REACTOME_G1_S_SPECIFIC_TRANSCRIPTION,
+
+                                
+                                subset(br_her2_predicted, Cluster == 4)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(br_her2_predicted, Cluster == 4)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(br_her2_predicted, Cluster == 4)$REACTOME_G1_S_SPECIFIC_TRANSCRIPTION,
+
+                                
+                                subset(br_her2_predicted, Cluster == 5)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(br_her2_predicted, Cluster == 5)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(br_her2_predicted, Cluster == 5)$REACTOME_G1_S_SPECIFIC_TRANSCRIPTION),
+
+                     "Cluster" = c(rep("Cluster 1",nrow(subset(br_her2_predicted, Cluster == 1))*3), rep("Cluster 2",nrow(subset(br_her2_predicted, Cluster == 2))*3),
+                                   rep("Cluster 3",nrow(subset(br_her2_predicted, Cluster == 3))*3),
+                                   rep("Cluster 4",nrow(subset(br_her2_predicted, Cluster == 4))*3),
+                                   rep("Cluster 5",nrow(subset(br_her2_predicted, Cluster == 5))*3)))
+
+```
+
+```{r}
+my_comparisons <- list(c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_PI3K_AKT_ACTIVATION"), c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_G1_S_SPECIFIC_TRANSCRIPTION"), c("REACTOME_PI3K_AKT_ACTIVATION", "REACTOME_G1_S_SPECIFIC_TRANSCRIPTION"))
+
+pm_boxplot <- ggplot(avg_df, aes(x = Pathway, y = Mean, fill = Pathway)) +
+  geom_boxplot(position = "dodge") +
+  facet_wrap(~Cluster, nrow = 1) +
+    stat_compare_means(comparisons = my_comparisons) +
+  
+  stat_compare_means(label.y = 3) +
+  theme_classic()+
+  ylab("Score") +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank())+
+  scale_fill_manual(values = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF")) 
+
+  
+```
+
+```{r}
+my_comparisons <- list(c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_PI3K_AKT_ACTIVATION"), c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_G1_S_SPECIFIC_TRANSCRIPTION"), c("REACTOME_PI3K_AKT_ACTIVATION", "REACTOME_G1_S_SPECIFIC_TRANSCRIPTION"))
+
+avg_df$Group <- "EGFR Signaling High"
+avg_df$Group[avg_df$Cluster %in% c("Cluster 1","Cluster 5")] <- "PI3K Signaling High"
+avg_df$Group[avg_df$Cluster %in% c("Cluster 4")] <- "CDK4/6 Signaling High"
+
+
+pm_boxplot_new <- ggplot(avg_df, aes(x = Pathway, y = Mean, fill = Pathway)) +
+  geom_boxplot(position = "dodge") +
+  facet_wrap(~Group, nrow = 1) +
+    stat_compare_means(comparisons = my_comparisons) +
+  geom_hline(yintercept = 0, color = "gray", linetype = "dashed") +
+  ggtitle("PhenoMap") +
+  scale_y_continuous(limits = c(-5, 6.5), breaks = c(-5, -2.5, 0, 2.5, 5)) +
+  theme_classic()+
+  ylab("Score") +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5, size = 16),
+        strip.text = element_text(size = 16), axis.text.y = element_text(size = 16), axis.title.y = element_text(size = 16))+
+  scale_fill_manual(values = c("#D81B60", "#1E88E5", "#FFC107")) 
+
+  
+```
+
+```{r}
+br_pca_df_predicted$Group <- "EGFR Signaling High"
+br_pca_df_predicted$Group[br_pca_df_predicted$Cluster %in% c(1,5)] <- "PI3K Signaling High"
+br_pca_df_predicted$Group[br_pca_df_predicted$Cluster %in% c(4)] <- "CDK4/6 Signaling High"
+
+pm_pca <- ggplot(br_pca_df_predicted, aes(x = PC1, y = PC2, color = Group)) +
+                  geom_point() +
+                  theme_classic() +
+                  ggtitle("PhenoMap") +
+                  theme(plot.title = element_text(hjust = 0.5))+
+                  scale_color_manual(values = c("#D81B60",  "#FFC107", "#1E88E5"))
+```
+
+
+```{r}
+ggpubr::ggarrange(gsva_pca, pm_pca, ncol = 2, nrow = 1, common.legend = T)
+```
+```{r}
+ggpubr::ggarrange(gsva_boxplot_new, pm_boxplot_new, ncol = 1, nrow = 2, common.legend = T)
+```
+
+
+```{r}
+
+## Compare PI3KCA mutation status vs activation of PI3K Signaling Pathway
+
+# genomic TCGA data
+tcga_genomic <- read.csv("~//Documents//Survival VAE//PANCAN_Genomic_Data.csv")
+
+
+# load GSVA and PhenoMap scores
+c2_predicted <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split1.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split2.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split3.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split4.csv"),
+                      read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split5.csv"))[-1,]
+c2_real <- read.csv("~//Documents//Survival VAE//GSVA_Results_PANCAN.csv")
+c2_real <- c2_real[grepl("REACTOME", c2_real$X),]
+c2_predicted <- c2_predicted[,-1]
+colnames(c2_predicted) <- c("PatientID", c2_real$X)
+
+c2_real <- as.data.frame(t(c2_real))
+colnames(c2_real) <- c2_real[1,]
+c2_real <- c2_real[-1,]
+c2_real <- cbind(data.frame("PatientID" = substr(gsub("[.]", "-", rownames(c2_real)), 1, 12)), c2_real)
+c2_real <- subset(c2_real, PatientID %in% c2_predicted$PatientID)
+
+## remove patients with multiple samples
+multiple_samples <- as.data.frame(table(c2_real$PatientID))
+multiple_samples <- subset(multiple_samples, Freq > 1)$Var1
+
+c2_real_fix <- subset(c2_real, PatientID %in% multiple_samples)
+c2_real_keep <- dplyr::setdiff(c2_real, c2_real_fix)
+
+c2_real_fixed <- data.frame()
+for (pt in multiple_samples){
+  sub <- subset(c2_real_fix, PatientID == pt)
+  c2_real_fixed <- rbind(c2_real_fixed, sub[1,])
+}
+
+c2_real <- rbind(c2_real_keep, c2_real_fixed)
+
+c2_real <- c2_real %>%
+  arrange(PatientID, c2_predicted$PatientID)
+c2_predicted <- c2_predicted %>%
+  arrange(PatientID, c2_real$PatientID)
+
+reactome_real <- c2_real
+reactome_predicted <- c2_predicted
+
+hallmark_predicted <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split1_hallmark.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split2_hallmark.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split3_hallmark.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split4_hallmark.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split5_hallmark.csv"))[-1,]
+hallmark_real <- read.csv("~//Documents//Survival VAE//Pathway Scores//GSVA_Results_PANCAN_Hallmark.csv")
+hallmark_predicted <- hallmark_predicted[,-1]
+colnames(hallmark_predicted) <- c("PatientID", hallmark_real$X)
+
+hallmark_real <- as.data.frame(t(hallmark_real))
+colnames(hallmark_real) <- hallmark_real[1,]
+hallmark_real <- hallmark_real[-1,]
+hallmark_real <- cbind(data.frame("PatientID" = substr(gsub("[.]", "-", rownames(hallmark_real)), 1, 12)), hallmark_real)
+hallmark_real <- subset(hallmark_real, PatientID %in% hallmark_predicted$PatientID)
+
+## remove patients with multiple samples
+multiple_samples <- as.data.frame(table(hallmark_real$PatientID))
+multiple_samples <- subset(multiple_samples, Freq > 1)$Var1
+
+hallmark_real_fix <- subset(hallmark_real, PatientID %in% multiple_samples)
+hallmark_real_keep <- dplyr::setdiff(hallmark_real, hallmark_real_fix)
+
+hallmark_real_fixed <- data.frame()
+for (pt in multiple_samples){
+  sub <- subset(hallmark_real_fix, PatientID == pt)
+  hallmark_real_fixed <- rbind(hallmark_real_fixed, sub[1,])
+}
+
+hallmark_real <- rbind(hallmark_real_keep, hallmark_real_fixed)
+
+hallmark_real <- hallmark_real %>%
+  arrange(PatientID, hallmark_predicted$PatientID)
+hallmark_predicted <- hallmark_predicted %>%
+  arrange(PatientID, hallmark_real$PatientID)
+
+# load clinical data
+clin <- read.csv("~//Documents//Survival VAE//PANCAN_ALL_CLinical.csv")[,-1]
+breast_clin <- subset(clin, acronym == "BRCA")
+
+
+# subset data
+tcga_pik3ca <- tcga_genomic[,c("PatientID", "SNV_PIK3CA")]
+
+tcga_pik3ca <- subset(tcga_pik3ca, PatientID %in% breast_clin$bcr_patient_barcode)
+
+reactome_real_pi3k <- reactome_real[,c("PatientID", "REACTOME_PI3K_AKT_ACTIVATION")]
+reactome_real_pi3k <- subset(reactome_real_pi3k, PatientID %in% breast_clin$bcr_patient_barcode)
+
+reactome_predicted_pi3k <- reactome_predicted[,c("PatientID", "REACTOME_PI3K_AKT_ACTIVATION")]
+reactome_predicted_pi3k <- subset(reactome_predicted_pi3k, PatientID %in% breast_clin$bcr_patient_barcode)
+
+tcga_pik3ca <- subset(tcga_pik3ca, PatientID %in% reactome_real_pi3k$PatientID)
+
+
+# merge with survival data
+clin <- read.csv("~//Documents//Survival VAE//breast_clin_top_0.25.csv")[,c(2,31,32,35,36,37,38)]
+colnames(clin)[1] <- "PatientID"
+clin$OS_STATUS[clin$OS_STATUS == "0:LIVING"]<- 0
+clin$OS_STATUS[clin$OS_STATUS == "1:DECEASED"]<- 1
+clin$DFS_STATUS[clin$DFS_STATUS == "0:DiseaseFree"]<- 0
+clin$DFS_STATUS[clin$DFS_STATUS == "1:Recurred/Progressed"]<- 1
+clin$PFS_STATUS[clin$PFS_STATUS == "0:CENSORED"]<- 0
+clin$PFS_STATUS[clin$PFS_STATUS == "1:PROGRESSION"]<- 1
+
+surv <- subset(clin, PatientID %in% tcga_pik3ca$PatientID)
+surv$OS_STATUS <- as.numeric(surv$OS_STATUS)
+surv$DFS_STATUS <- as.numeric(surv$DFS_STATUS)
+surv$PFS_STATUS <- as.numeric(surv$PFS_STATUS)
+
+tcga_pik3ca <- merge(tcga_pik3ca, surv, by = "PatientID")
+reactome_real_pi3k <- merge(reactome_real_pi3k, surv, by = "PatientID")
+reactome_predicted_pi3k <- merge(reactome_predicted_pi3k, surv, by = "PatientID")
+
+# plot survival +/- pi3kca mutation
+
+tcga_pik3ca$Group <- "No PIK3CA Mutation"
+tcga_pik3ca$Group[tcga_pik3ca$SNV_PIK3CA == 1] <- "PIK3CA Mutation"
+
+fit_genomic_os <- survfit(Surv(OS_MONTHS, OS_STATUS) ~ Group, data = tcga_pik3ca)
+genomic_os <- ggsurvplot(fit_genomic_os, pval = T,
+                          palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                          ylab = "Overall Survival Probability",
+                          xlab = "Months")
+genomic_os
+
+fit_genomic_dfs <- survfit(Surv(DFS_MONTHS, DFS_STATUS) ~ Group, data = tcga_pik3ca)
+genomic_dfs <- ggsurvplot(fit_genomic_dfs, pval = T,
+                           palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                           ylab = "Disease-Free Survival Probability",
+                           xlab = "Months")
+genomic_dfs
+
+fit_genomic_pfs <- survfit(Surv(PFS_MONTHS, PFS_STATUS) ~ Group, data = tcga_pik3ca)
+genomic_pfs <- ggsurvplot(fit_genomic_pfs, pval = T,
+                           palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                           ylab = "Progression-Free Survival Probability",
+                           xlab = "Months")
+genomic_pfs
+
+
+# plot survival gsva scores
+reactome_real_pi3k$REACTOME_PI3K_AKT_ACTIVATION <- as.numeric(reactome_real_pi3k$REACTOME_PI3K_AKT_ACTIVATION)
+reactome_real_pi3k$Group <- "PI3K Signaling High"
+reactome_real_pi3k$Group[reactome_real_pi3k$REACTOME_PI3K_AKT_ACTIVATION <= mean(reactome_real_pi3k$REACTOME_PI3K_AKT_ACTIVATION)] <- "PI3K Signaling Low"
+
+
+fit_gsva_os <- survfit(Surv(OS_MONTHS, OS_STATUS) ~ Group, data = reactome_real_pi3k)
+gsva_os <- ggsurvplot(fit_gsva_os, pval = T,
+                         palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                         ylab = "Overall Survival Probability",
+                         xlab = "Months")
+gsva_os
+
+fit_gsva_dfs <- survfit(Surv(DFS_MONTHS, DFS_STATUS) ~ Group, data = reactome_real_pi3k)
+gsva_dfs <- ggsurvplot(fit_gsva_dfs, pval = T,
+                          palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                          ylab = "Disease-Free Survival Probability",
+                          xlab = "Months")
+gsva_dfs
+
+fit_gsva_pfs <- survfit(Surv(PFS_MONTHS, PFS_STATUS) ~ Group, data = reactome_real_pi3k)
+gsva_pfs <- ggsurvplot(fit_gsva_pfs, pval = T,
+                          palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                          ylab = "Progression-Free Survival Probability",
+                          xlab = "Months")
+gsva_pfs
+
+
+
+# plot survival phenomap scores
+reactome_predicted_pi3k$REACTOME_PI3K_AKT_ACTIVATION <- as.numeric(reactome_predicted_pi3k$REACTOME_PI3K_AKT_ACTIVATION)
+
+cp <- surv_cutpoint(reactome_predicted_pi3k, time = "DFS_MONTHS", event = "DFS_STATUS",
+                    variables = c("REACTOME_PI3K_AKT_ACTIVATION"))
+
+reactome_predicted_pi3k$Group <- "PI3K Signaling High"
+reactome_predicted_pi3k$Group[reactome_predicted_pi3k$REACTOME_PI3K_AKT_ACTIVATION <= mean(reactome_predicted_pi3k$REACTOME_PI3K_AKT_ACTIVATION)] <- "PI3K Signaling Low"
+
+
+fit_pm_os <- survfit(Surv(OS_MONTHS, OS_STATUS) ~ Group, data = reactome_predicted_pi3k)
+pm_os <- ggsurvplot(fit_pm_os, pval = T,
+                      palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                      ylab = "Overall Survival Probability",
+                      xlab = "Months")
+pm_os
+
+fit_pm_dfs <- survfit(Surv(DFS_MONTHS, DFS_STATUS) ~ Group, data = reactome_predicted_pi3k)
+pm_dfs <- ggsurvplot(fit_pm_dfs, pval = T,
+                       palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                       ylab = "Disease-Free Survival Probability",
+                       xlab = "Months")
+pm_dfs
+
+fit_pm_pfs <- survfit(Surv(PFS_MONTHS, PFS_STATUS) ~ Group, data = reactome_predicted_pi3k)
+pm_pfs <- ggsurvplot(fit_pm_pfs, pval = T,
+                       palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                       ylab = "Progression-Free Survival Probability",
+                       xlab = "Months")
+pm_pfs
+```
+
+```{r}
+ggpubr::ggarrange(genomic_dfs$plot, gsva_dfs$plot, pm_dfs$plot, ncol = 1, nrow = 3)
+```
+```{r}
+br_genomic_os <- genomic_os
+br_genomic_dfs <- genomic_dfs
+br_genomic_pfs <- genomic_pfs
+
+br_pm_os <- pm_os
+br_pm_dfs <- pm_dfs
+br_pm_pfs <- pm_pfs
+```
+
+
+```{r}
+pam_pathways <- c("HALLMARK_PI3K_AKT_MTOR_SIGNALING", "REACTOME_NEGATIVE_REGULATION_OF_THE_PI3K_AKT_NETWORK",
+                  "REACTOME_PI3K_AKT_ACTIVATION", "REACTOME_PI3K_AKT_SIGNALING_IN_CANCER", "REACTOME_MTOR_SIGNALLING",
+                  "KEGG_MTOR_SIGNALING_PATHWAY")
+
+kras_pathways <- unique(c(colnames(all_paths_predicted)[grep("_KRAS_", colnames(all_paths_predicted))],
+                  colnames(all_paths_predicted)[grep("_MEK_", colnames(all_paths_predicted))],
+                  colnames(all_paths_predicted)[grep("_ERK_", colnames(all_paths_predicted))],
+                  colnames(all_paths_predicted)[grep("_RAF_", colnames(all_paths_predicted))]))
+
+her2_pathways <- c("REACTOME_DOWNREGULATION_OF_ERBB2_SIGNALING", "REACTOME_SIGNALING_BY_ERBB2",
+                   "REACTOME_SIGNALING_BY_ERBB2_IN_CANCER", "REACTOME_EGFR_DOWNREGULATION",
+                   "REACTOME_SIGNALING_BY_EGFR", "REACTOME_SIGNALING_BY_EGFR_IN_CANCER")
+
+met_pathways <- c("REACTOME_MET_RECEPTOR_ACTIVATION", "REACTOME_NEGATIVE_REGULATION_OF_MET_ACTIVITY",
+                  "REACTOME_MET_RECEPTOR_RECYCLING", "REACTOME_MET_PROMOTES_CELL_MOTILITY")
+
+all_pathways <- unique(c(pam_pathways, her2_pathways, kras_pathways))
+her2_real <- all_paths_real[,c("PatientID", all_pathways)]
+her2_predicted <- all_paths_predicted[,c("PatientID", all_pathways)]
+
+clin <- read.csv("~//Documents//Survival VAE//PANCAN_ALL_CLinical.csv")[,-1]
+lung_clin <- subset(clin, acronym == "LUAD")
+
+lu_her2_real <- subset(her2_real, PatientID %in% lung_clin$bcr_patient_barcode)
+lu_her2_predicted <- subset(her2_predicted, PatientID %in% lung_clin$bcr_patient_barcode)
+```
+
+```{r}
+set.seed(1)
+lu_her2_real[,-1] <- apply(lu_her2_real[,-1], 2, as.numeric)
+
+lu_her2_real[,-1] <- scale(lu_her2_real[,-1])
+
+lu_her2.pca.real <- prcomp(lu_her2_real[,-1], center = TRUE, scale = F)
+fviz_eig(lu_her2.pca.real)
+```
+
+```{r}
+set.seed(1)
+lu_km_her2_real <- kmeans(lu_her2_real[,-1], centers = 5)
+
+lu_pca_df_real <- data.frame("PC1" = lu_her2.pca.real$x[,1], "PC2" = lu_her2.pca.real$x[,2], "Cluster" = as.factor(lu_km_her2_real$cluster))
+
+
+lu_her2_real$Cluster <- as.factor(lu_km_her2_real$cluster)
+
+ht1 <- Heatmap(t(subset(lu_her2_real, Cluster == "1")[,-c(1,ncol(lu_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+ht2 <- Heatmap(t(subset(lu_her2_real, Cluster == "2")[,-c(1,ncol(lu_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+ht3 <- Heatmap(t(subset(lu_her2_real, Cluster == "3")[,-c(1,ncol(lu_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+ht4 <- Heatmap(t(subset(lu_her2_real, Cluster == "4")[,-c(1,ncol(lu_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+ht5 <- Heatmap(t(subset(lu_her2_real, Cluster == "5")[,-c(1,ncol(lu_her2_real))]), name = "Pathway Score",  show_column_names = FALSE,
+        row_names_side = "left", show_row_dend = F, row_names_gp = gpar(fontsize = 8),
+        row_names_max_width = unit(15, "cm"), cluster_rows = F)
+```
+
+```{r}
+loadings <- data.frame(lu_her2.pca.real$rotation)
+loadings <- loadings[order(-loadings$PC1),]
+```
+
+```{r}
+
+avg_df <- data.frame("Pathway" = c(rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(lu_her2_real, Cluster == 1))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(lu_her2_real, Cluster == 1))),
+                                   rep("HALLMARK_KRAS_SIGNALING_UP", nrow(subset(lu_her2_real, Cluster == 1))),
+                                   
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(lu_her2_real, Cluster == 2))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(lu_her2_real, Cluster == 2))),
+                                   rep("HALLMARK_KRAS_SIGNALING_UP", nrow(subset(lu_her2_real, Cluster == 2))),
+                                   
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(lu_her2_real, Cluster == 3))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(lu_her2_real, Cluster == 3))),
+                                   rep("HALLMARK_KRAS_SIGNALING_UP", nrow(subset(lu_her2_real, Cluster == 3))),
+                                   
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(lu_her2_real, Cluster == 4))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(lu_her2_real, Cluster == 4))),
+                                   rep("HALLMARK_KRAS_SIGNALING_UP", nrow(subset(lu_her2_real, Cluster == 4))),
+                                   
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(lu_her2_real, Cluster == 5))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(lu_her2_real, Cluster == 5))),
+                                   rep("HALLMARK_KRAS_SIGNALING_UP", nrow(subset(lu_her2_real, Cluster == 5)))),
+                     "Mean" = c(subset(lu_her2_real, Cluster == 1)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(lu_her2_real, Cluster == 1)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(lu_her2_real, Cluster == 1)$HALLMARK_KRAS_SIGNALING_UP,
+                                
+                                subset(lu_her2_real, Cluster == 2)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(lu_her2_real, Cluster == 2)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(lu_her2_real, Cluster == 2)$HALLMARK_KRAS_SIGNALING_UP,
+                                
+                                subset(lu_her2_real, Cluster == 3)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(lu_her2_real, Cluster == 3)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(lu_her2_real, Cluster == 3)$HALLMARK_KRAS_SIGNALING_UP,
+                                
+                                subset(lu_her2_real, Cluster == 4)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(lu_her2_real, Cluster == 4)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(lu_her2_real, Cluster == 4)$HALLMARK_KRAS_SIGNALING_UP,
+                                
+                                subset(lu_her2_real, Cluster == 5)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(lu_her2_real, Cluster == 5)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(lu_her2_real, Cluster == 5)$HALLMARK_KRAS_SIGNALING_UP),
+
+                     "Cluster" = c(rep("Cluster 1",nrow(subset(lu_her2_real, Cluster == 1))*3), rep("Cluster 2",nrow(subset(lu_her2_real, Cluster == 2))*3),
+                                   rep("Cluster 3",nrow(subset(lu_her2_real, Cluster == 3))*3),
+                                   rep("Cluster 4",nrow(subset(lu_her2_real, Cluster == 4))*3),
+                                   rep("Cluster 5",nrow(subset(lu_her2_real, Cluster == 5))*3)))
+
+```
+
+```{r}
+my_comparisons <- list(c("HALLMARK_KRAS_SIGNALING_UP", "REACTOME_MET_PROMOTES_CELL_MOTILITY"),    c("REACTOME_PI3K_AKT_SIGNALING_IN_CANCER", "REACTOME_MET_PROMOTES_CELL_MOTILITY"),
+                       c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_PI3K_AKT_SIGNALING_IN_CANCER"), 
+                      
+                       c("REACTOME_PI3K_AKT_SIGNALING_IN_CANCER", "HALLMARK_KRAS_SIGNALING_UP"),
+                       c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_MET_PROMOTES_CELL_MOTILITY"),
+                        c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "HALLMARK_KRAS_SIGNALING_UP"))
+
+gsva_boxplot <- ggplot(avg_df, aes(x = Pathway, y = Mean, fill = Pathway)) +
+  geom_boxplot(position = "dodge") +
+  facet_wrap(~Cluster, nrow = 1) +
+    stat_compare_means(comparisons = my_comparisons) +
+  stat_compare_means(label.y = 2.5) +
+  scale_x_continuous(limits = c(-5, 5), breaks = c(-5, -2.5, 0, 2.5, 5)) +
+  theme_classic()+
+  ylab("Score") +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank())+
+  scale_fill_manual(values = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF")) 
+
+  
+```
+
+
+```{r}
+my_comparisons <- list(c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_PI3K_AKT_ACTIVATION"), 
+                      
+                       c("REACTOME_PI3K_AKT_ACTIVATION", "HALLMARK_KRAS_SIGNALING_UP"),
+                        c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "HALLMARK_KRAS_SIGNALING_UP"))
+
+avg_df$Group <- "EGFR Signaling High"
+avg_df$Group[avg_df$Cluster %in% c("Cluster 5")] <- "PI3K Signaling High"
+#avg_df$Group[avg_df$Cluster %in% c("Cluster ")] <- "MET Signaling High"
+avg_df$Group[avg_df$Cluster %in% c("Cluster 2", "Cluster 3")] <- "KRAS Signaling High"
+
+
+
+gsva_boxplot_new <- ggplot(avg_df, aes(x = Pathway, y = Mean, fill = Pathway)) +
+  geom_boxplot(position = "dodge") +
+  facet_wrap(~Group, nrow = 1) +
+    stat_compare_means(comparisons = my_comparisons) +
+  scale_y_continuous(limits = c(-5, 6.5), breaks = c(-5, -2.5, 0, 2.5, 5)) +
+    geom_hline(yintercept = 0, color = "gray", linetype = "dashed")+
+  theme_classic()+
+  ggtitle("GSVA") +
+  ylab("Score") +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5, size = 16),
+        strip.text = element_text(size = 16), axis.text.y = element_text(size = 16), axis.title.y = element_text(size = 16))+
+  scale_fill_manual(values = c("#789E8C","#1E88E5",  "#FFC107")) 
+```
+
+```{r}
+lu_pca_df_real$Group <- "EGFR Signaling High"
+lu_pca_df_real$Group[lu_pca_df_real$Cluster %in% c(5)] <- "PI3K Signaling High"
+lu_pca_df_real$Group[lu_pca_df_real$Cluster %in% c(2,3)] <- "KRAS Signaling High"
+
+gsva_pca <- ggplot(lu_pca_df_real, aes(x = PC1, y = PC2, color = Group)) +
+                  geom_point() +
+                  theme_classic() +
+                  ggtitle("GSVA") +
+                  theme(plot.title = element_text(hjust = 0.5))+
+                  scale_color_manual(values = c("PI3K Signaling High" = "#1E88E5", 
+                                                "EGFR Signaling High" = "#FFC107",
+                                                "KRAS Signaling High" = "#789E8C"))
+gsva_pca
+```
+
+```{r}
+set.seed(1)
+lu_her2_predicted[,-1] <- apply(lu_her2_predicted[,-1], 2, as.numeric)
+
+lu_her2_predicted[,-1] <- scale(lu_her2_predicted[,-1])
+
+lu_her2.pca.predicted <- prcomp(lu_her2_predicted[,-1], center = TRUE, scale = F)
+fviz_eig(lu_her2.pca.predicted)
+```
+
+```{r}
+set.seed(1)
+lu_km_her2_predicted <- kmeans(lu_her2_predicted[,-1], centers = 5)
+
+lu_pca_df_predicted <- data.frame("PC1" = lu_her2.pca.predicted$x[,1], "PC2" = lu_her2.pca.predicted$x[,2], "Cluster" = as.factor(lu_km_her2_predicted$cluster))
+
+
+lu_her2_predicted$Cluster <- as.factor(lu_km_her2_predicted$cluster)
+```
+
+
+
+```{r}
+
+avg_df <- data.frame("Pathway" = c(rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(lu_her2_predicted, Cluster == 1))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(lu_her2_predicted, Cluster == 1))),
+                                   rep("HALLMARK_KRAS_SIGNALING_UP", nrow(subset(lu_her2_predicted, Cluster == 1))),
+
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(lu_her2_predicted, Cluster == 2))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(lu_her2_predicted, Cluster == 2))),
+                                   rep("HALLMARK_KRAS_SIGNALING_UP", nrow(subset(lu_her2_predicted, Cluster == 2))),
+
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(lu_her2_predicted, Cluster == 3))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(lu_her2_predicted, Cluster == 3))),
+                                   rep("HALLMARK_KRAS_SIGNALING_UP", nrow(subset(lu_her2_predicted, Cluster == 3))),
+
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(lu_her2_predicted, Cluster == 4))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(lu_her2_predicted, Cluster == 4))),
+                                   rep("HALLMARK_KRAS_SIGNALING_UP", nrow(subset(lu_her2_predicted, Cluster == 4))),
+
+                                   rep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", nrow(subset(lu_her2_predicted, Cluster == 5))),
+                                   rep("REACTOME_PI3K_AKT_ACTIVATION", nrow(subset(lu_her2_predicted, Cluster == 5))),
+                                   rep("HALLMARK_KRAS_SIGNALING_UP", nrow(subset(lu_her2_predicted, Cluster == 5)))),
+                     "Mean" = c(subset(lu_her2_predicted, Cluster == 1)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(lu_her2_predicted, Cluster == 1)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(lu_her2_predicted, Cluster == 1)$HALLMARK_KRAS_SIGNALING_UP,
+
+                                subset(lu_her2_predicted, Cluster == 2)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(lu_her2_predicted, Cluster == 2)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(lu_her2_predicted, Cluster == 2)$HALLMARK_KRAS_SIGNALING_UP,
+
+                                subset(lu_her2_predicted, Cluster == 3)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(lu_her2_predicted, Cluster == 3)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(lu_her2_predicted, Cluster == 3)$HALLMARK_KRAS_SIGNALING_UP,
+
+                                subset(lu_her2_predicted, Cluster == 4)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(lu_her2_predicted, Cluster == 4)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(lu_her2_predicted, Cluster == 4)$HALLMARK_KRAS_SIGNALING_UP,
+
+                                subset(lu_her2_predicted, Cluster == 5)$REACTOME_SIGNALING_BY_EGFR_IN_CANCER,
+                                subset(lu_her2_predicted, Cluster == 5)$REACTOME_PI3K_AKT_ACTIVATION,
+                                subset(lu_her2_predicted, Cluster == 5)$HALLMARK_KRAS_SIGNALING_UP),
+                     "Cluster" = c(rep("Cluster 1",nrow(subset(lu_her2_predicted, Cluster == 1))*3), rep("Cluster 2",nrow(subset(lu_her2_predicted, Cluster == 2))*3),
+                                   rep("Cluster 3",nrow(subset(lu_her2_predicted, Cluster == 3))*3),
+                                   rep("Cluster 4",nrow(subset(lu_her2_predicted, Cluster == 4))*3),
+                                   rep("Cluster 5",nrow(subset(lu_her2_predicted, Cluster == 5))*3)))
+
+```
+
+```{r}
+my_comparisons <- list(c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_PI3K_AKT_SIGNALING_IN_CANCER"), 
+                       c("REACTOME_PI3K_AKT_SIGNALING_IN_CANCER", "HALLMARK_KRAS_SIGNALING_UP"),
+                        c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "HALLMARK_KRAS_SIGNALING_UP"))
+
+gsva_boxplot <- ggplot(avg_df, aes(x = Pathway, y = Mean, fill = Pathway)) +
+  geom_boxplot(position = "dodge") +
+  facet_wrap(~Cluster, nrow = 1) +
+    stat_compare_means(comparisons = my_comparisons) +
+  stat_compare_means(label.y = 2.5) +
+  theme_classic()+
+  ylab("Score") +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank())+
+  scale_fill_manual(values = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF")) 
+
+  
+```
+
+```{r}
+my_comparisons <- list(c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "REACTOME_PI3K_AKT_ACTIVATION"), 
+                       c("REACTOME_PI3K_AKT_ACTIVATION", "HALLMARK_KRAS_SIGNALING_UP"),
+                        c("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", "HALLMARK_KRAS_SIGNALING_UP"))
+
+avg_df$Group <- "EGFR Signaling High"
+avg_df$Group[avg_df$Cluster %in% c("Cluster 2")] <- "PI3K Signaling High"
+#avg_df$Group[avg_df$Cluster %in% c("Cluster ")] <- "MET Signaling High"
+avg_df$Group[avg_df$Cluster %in% c("Cluster 1", "Cluster 3")] <- "KRAS Signaling High"
+
+pm_boxplot_new <- ggplot(avg_df, aes(x = Pathway, y = Mean, fill = Pathway)) +
+  geom_boxplot(position = "dodge") +
+  facet_wrap(~Group, nrow = 1) +
+    stat_compare_means(comparisons = my_comparisons) +
+    geom_hline(yintercept = 0, color = "gray", linetype = "dashed")+
+  scale_y_continuous(limits = c(-5, 6.5), breaks = c(-5, -2.5, 0, 2.5, 5)) +
+  ggtitle("PhenoMap") +
+  theme_classic()+
+  ylab("Score") +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5, size = 16),
+        strip.text = element_text(size = 16), axis.text.y = element_text(size = 16), axis.title.y = element_text(size = 16))+
+  scale_fill_manual(values = c("#789E8C","#1E88E5",  "#FFC107")) 
+```
+
+```{r}
+lu_pca_df_predicted$Group <- "EGFR Signaling High"
+lu_pca_df_predicted$Group[lu_pca_df_predicted$Cluster %in% c(2)] <- "PI3K Signaling High"
+lu_pca_df_predicted$Group[lu_pca_df_predicted$Cluster %in% c(1,3)] <- "KRAS Signaling High"
+
+pm_pca <- ggplot(lu_pca_df_predicted, aes(x = PC1, y = PC2, color = Group)) +
+                  geom_point() +
+                  theme_classic() +
+                  ggtitle("PhenoMap") +
+                  theme(plot.title = element_text(hjust = 0.5))+
+                  scale_color_manual(values = c("PI3K Signaling High" = "#1E88E5", 
+                              "EGFR Signaling High" = "#FFC107",
+                              "KRAS Signaling High" = "#789E8C"))
+pm_pca
+```
+
+```{r}
+ggpubr::ggarrange(gsva_pca, pm_pca, ncol = 2, nrow = 1, common.legend = T) # saved svg 700 x 300
+```
+
+```{r}
+ggpubr::ggarrange(gsva_boxplot_new, pm_boxplot_new, ncol = 1, nrow = 2, common.legend = T) # saved svg 850 x 800
+```
+
+
+```{r}
+grep("HALLMARK_KRAS_SIGNALING_UP", reactome_pathways)
+grep("REACTOME_PI3K_AKT_ACTIVATION", reactome_pathways)
+grep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", reactome_pathways)
+
+mods1 <- readRDS("~//Documents//PhenoMap_Files//Trained_Models//reactome_trained_models_501_600.rds")
+g1_s_mod <- mods1[13]
+
+mods2 <- readRDS("~//Documents//PhenoMap_Files//Trained_Models//reactome_trained_models_901_1000.rds")
+pi3k_mod <- mods2[81]
+
+mods3 <- readRDS("~//Documents//PhenoMap_Files//Trained_Models//reactome_trained_models_1201_1300.rds")
+egfr_mod <- mods3[90]
+
+g1_s_imp <- data.frame(g1_s_mod[[1]]$importance)
+g1_s_imp$Gene <- row.names(g1_s_imp)
+g1_s_imp <- g1_s_imp[order(-g1_s_imp$IncNodePurity),]
+
+pi3k_imp <- data.frame(pi3k_mod[[1]]$importance)
+pi3k_imp$Gene <- row.names(pi3k_imp)
+pi3k_imp <- pi3k_imp[order(-pi3k_imp$IncNodePurity),]
+
+egfr_imp <- data.frame(egfr_mod[[1]]$importance)
+egfr_imp$Gene <- row.names(egfr_imp)
+egfr_imp <- egfr_imp[order(-egfr_imp$IncNodePurity),]
+
+new_g <- c()
+for (i in 1:nrow(g1_s_imp)){
+  spl <- strsplit(as.character(g1_s_imp$Gene[i]), split = "_")
+  new <- paste0(spl[[1]][2], " (", spl[[1]][1], ")")
+  new_g <- c(new_g, new)
+}
+g1_s_imp$Gene <- new_g
+g1_s_imp$Gene <- factor(g1_s_imp$Gene, levels = g1_s_imp$Gene)
+g1_plot <- ggplot(g1_s_imp[1:20,], aes(x = Gene, y = IncNodePurity)) +
+  geom_col(just = 0.5, fill = "#D81B60") +
+  theme_classic() +
+  ggtitle("G1_S_SPECIFIC_TRANSCRIPTION") +
+  theme(axis.text.x = element_text(angle = 45, hjust =1, vjust = 1), plot.title = element_text(hjust = 0.5))
+
+
+new_g <- c()
+for (i in 1:nrow(pi3k_imp)){
+  spl <- strsplit(as.character(pi3k_imp$Gene[i]), split = "_")
+  new <- paste0(spl[[1]][2], " (", spl[[1]][1], ")")
+  new_g <- c(new_g, new)
+}
+pi3k_imp$Gene <- new_g
+pi3k_imp$Gene <- factor(pi3k_imp$Gene, levels = pi3k_imp$Gene)
+pi3k_plot <- ggplot(pi3k_imp[1:20,], aes(x = Gene, y = IncNodePurity)) +
+  geom_col(just = 0.5, fill = "#1E88E5") +
+  theme_classic() +
+  ggtitle("PI3K_AKT_ACTIVATION") +
+  theme(axis.text.x = element_text(angle = 45, hjust =1, vjust = 1), plot.title = element_text(hjust = 0.5))
+
+
+new_g <- c()
+for (i in 1:nrow(egfr_imp)){
+  spl <- strsplit(as.character(egfr_imp$Gene[i]), split = "_")
+  new <- paste0(spl[[1]][2], " (", spl[[1]][1], ")")
+  new_g <- c(new_g, new)
+}
+egfr_imp$Gene <- new_g
+egfr_imp$Gene <- factor(egfr_imp$Gene, levels = egfr_imp$Gene)
+egfr_plot <- ggplot(egfr_imp[1:20,], aes(x = Gene, y = IncNodePurity)) +
+  geom_col(just = 0.5, fill = "#FFC107") +
+  theme_classic() +
+  ggtitle("SIGNALING_BY_EGFR_IN_CANCER") +
+  theme(axis.text.x = element_text(angle = 45, hjust =1, vjust = 1), plot.title = element_text(hjust = 0.5))
+```
+
+
+
+```{r}
+luad_clin <- subset(clin, acronym == "LUAD")
+# subset data
+tcga_kras <- tcga_genomic[,c("PatientID", "SNV_KRAS")]
+
+tcga_kras <- subset(tcga_kras, PatientID %in% luad_clin$bcr_patient_barcode)
+
+reactome_real_kras <- hallmark_real[,c("PatientID", "HALLMARK_KRAS_SIGNALING_UP")]
+reactome_real_kras <- subset(reactome_real_kras, PatientID %in% luad_clin$bcr_patient_barcode)
+
+reactome_predicted_kras <- hallmark_predicted[,c("PatientID", "HALLMARK_KRAS_SIGNALING_UP")]
+reactome_predicted_kras <- subset(reactome_predicted_kras, PatientID %in% luad_clin$bcr_patient_barcode)
+
+tcga_kras <- subset(tcga_kras, PatientID %in% reactome_real_kras$PatientID)
+
+
+clin <- read.delim("~//Documents//Survival VAE//luad_tcga_pan_can_atlas_2018_clinical_data.tsv", sep = "\t")[,c(2,15:16,35:36,42:43)]
+colnames(clin) <- c("PatientID", "DFS_MONTHS", "DFS_STATUS", "OS_MONTHS", "OS_STATUS", "PFS_MONTHS", "PFS_STATUS")
+clin$OS_STATUS[clin$OS_STATUS == "0:LIVING"]<- 0
+clin$OS_STATUS[clin$OS_STATUS == "1:DECEASED"]<- 1
+clin$DFS_STATUS[clin$DFS_STATUS == "0:DiseaseFree"]<- 0
+clin$DFS_STATUS[clin$DFS_STATUS == "1:Recurred/Progressed"]<- 1
+clin$PFS_STATUS[clin$PFS_STATUS == "0:CENSORED"]<- 0
+clin$PFS_STATUS[clin$PFS_STATUS == "1:PROGRESSION"]<- 1
+
+surv <- subset(clin, PatientID %in% tcga_kras$PatientID)
+surv$OS_STATUS <- as.numeric(surv$OS_STATUS)
+surv$DFS_STATUS <- as.numeric(surv$DFS_STATUS)
+surv$PFS_STATUS <- as.numeric(surv$PFS_STATUS)
+
+tcga_kras <- merge(tcga_kras, surv, by = "PatientID")
+reactome_real_kras <- merge(reactome_real_kras, surv, by = "PatientID")
+reactome_predicted_kras <- merge(reactome_predicted_kras, surv, by = "PatientID")
+
+# plot survival +/- pi3kca mutation
+tcga_kras$Group <- "No KRAS Mutation"
+tcga_kras$Group[tcga_kras$SNV_KRAS == 1] <- "KRAS Mutation"
+
+fit_genomic_os <- survfit(Surv(OS_MONTHS, OS_STATUS) ~ Group, data = tcga_kras)
+genomic_os <- ggsurvplot(fit_genomic_os, pval = T,
+                         palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                         ylab = "Overall Survival Probability",
+                         xlab = "Months")
+genomic_os
+
+fit_genomic_dfs <- survfit(Surv(DFS_MONTHS, DFS_STATUS) ~ Group, data = tcga_kras)
+genomic_dfs <- ggsurvplot(fit_genomic_dfs, pval = T,
+                          palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                          ylab = "Disease-Free Survival Probability",
+                          xlab = "Months")
+genomic_dfs
+
+fit_genomic_pfs <- survfit(Surv(PFS_MONTHS, PFS_STATUS) ~ Group, data = tcga_kras)
+genomic_pfs <- ggsurvplot(fit_genomic_pfs, pval = T,
+                          palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                          ylab = "Progression-Free Survival Probability",
+                          xlab = "Months")
+genomic_pfs
+
+# plot survival phenomap scores
+reactome_real_kras$HALLMARK_KRAS_SIGNALING_UP <- as.numeric(reactome_real_kras$HALLMARK_KRAS_SIGNALING_UP)
+
+cp <- surv_cutpoint(reactome_predicted_kras, time = "DFS_MONTHS", event = "DFS_STATUS",
+                    variables = c("HALLMARK_KRAS_SIGNALING_UP"))
+
+reactome_real_kras$Group <- "KRAS Signaling High"
+reactome_real_kras$Group[reactome_real_kras$HALLMARK_KRAS_SIGNALING_UP <= mean(reactome_real_kras$HALLMARK_KRAS_SIGNALING_UP)] <- "KRAS Signaling Low"
+
+
+fit_gsva_os <- survfit(Surv(OS_MONTHS, OS_STATUS) ~ Group, data = reactome_real_kras)
+gsva_os <- ggsurvplot(fit_gsva_os, pval = T,
+                    palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                    ylab = "Overall Survival Probability",
+                    xlab = "Months")
+gsva_os
+
+fit_pm_dfs <- survfit(Surv(DFS_MONTHS, DFS_STATUS) ~ Group, data = reactome_real_kras)
+gsva_dfs <- ggsurvplot(fit_gsva_dfs, pval = T,
+                     palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                     ylab = "Disease-Free Survival Probability",
+                     xlab = "Months")
+gsva_dfs
+
+
+# plot survival phenomap scores
+reactome_predicted_kras$HALLMARK_KRAS_SIGNALING_UP <- as.numeric(reactome_predicted_kras$HALLMARK_KRAS_SIGNALING_UP)
+
+cp <- surv_cutpoint(reactome_predicted_kras, time = "DFS_MONTHS", event = "DFS_STATUS",
+                    variables = c("HALLMARK_KRAS_SIGNALING_UP"))
+
+reactome_predicted_kras$Group <- "KRAS Signaling High"
+reactome_predicted_kras$Group[reactome_predicted_kras$HALLMARK_KRAS_SIGNALING_UP <= mean(reactome_predicted_kras$HALLMARK_KRAS_SIGNALING_UP)] <- "KRAS Signaling Low"
+
+
+fit_pm_os <- survfit(Surv(OS_MONTHS, OS_STATUS) ~ Group, data = reactome_predicted_kras)
+pm_os <- ggsurvplot(fit_pm_os, pval = T,
+                    palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                    ylab = "Overall Survival Probability",
+                    xlab = "Months")
+pm_os
+
+fit_pm_dfs <- survfit(Surv(DFS_MONTHS, DFS_STATUS) ~ Group, data = reactome_predicted_kras)
+pm_dfs <- ggsurvplot(fit_pm_dfs, pval = T,
+                     palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                     ylab = "Disease-Free Survival Probability",
+                     xlab = "Months")
+pm_dfs
+
+fit_pm_pfs <- survfit(Surv(PFS_MONTHS, PFS_STATUS) ~ Group, data = reactome_predicted_kras)
+pm_pfs <- ggsurvplot(fit_pm_pfs, pval = T,
+                     palette = c("#D81B60", "#1E88E5", "#FFC107", "#789E8C","#685CAF"),
+                     ylab = "Progression-Free Survival Probability",
+                     xlab = "Months")
+pm_pfs
+```
+
+```{r}
+genomic_plots <- ggpubr::ggarrange(br_genomic_os$plot, br_genomic_dfs$plot, br_genomic_pfs$plot, ncol = 3, nrow = 1,
+                  common.legend = T)
+pm_plots <- ggpubr::ggarrange(br_pm_os$plot, br_pm_dfs$plot, br_pm_pfs$plot, ncol = 3, nrow = 1,
+                  common.legend = T)
+ggpubr::ggarrange(genomic_plots, pm_plots, ncol = 1, nrow = 2)
+```
+
+
+```{r}
+ggpubr::ggarrange(genomic_dfs$plot, gsva_dfs$plot, pm_dfs$plot, ncol = 1, nrow = 3)
+```
+
+```{r}
+reactome_gene_filter <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_genefilter_split1.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_genefilter_split2.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_genefilter_split3.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_genefilter_split4.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_genefilter_split5.csv"))
+count <- c()
+for (pathway in unique(reactome_gene_filter$Pathway)){
+  count <- c(count, nrow(subset(reactome_gene_filter, Pathway == pathway))/5)
+}
+reactome_gene_numbers <- data.frame("Pathway" = unique(reactome_gene_filter$Pathway), "Count" = count)
+reactome_gene_numbers$Pathway.Set <- "Reactome"
+
+
+reactome_pathways <- read.csv("~//Documents//Survival VAE//GSVA_Results_PANCAN.csv")
+reactome_pathways <- reactome_pathways[grepl("REACTOME", reactome_pathways$X),]
+reactome_pathways <- reactome_pathways$X
+
+hallmark_gene_filter <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//hallmark_genefilter_split1.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//hallmark_genefilter_split2.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//hallmark_genefilter_split3.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//hallmark_genefilter_split4.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//hallmark_genefilter_split5.csv"))
+count <- c()
+for (pathway in unique(hallmark_gene_filter$Pathway)){
+  count <- c(count, nrow(subset(hallmark_gene_filter, Pathway == pathway))/5)
+}
+hallmark_gene_numbers <- data.frame("Pathway" = unique(hallmark_gene_filter$Pathway), "Count" = count)
+hallmark_gene_numbers$Pathway.Set <- "Reactome"
+
+
+hallmark_pathways <- read.csv("~//Documents//Survival VAE//GSVA_Results_PANCAN_Hallmark.csv")
+hallmark_pathways <- hallmark_pathways$X
+
+grep("REACTOME_G1_S_SPECIFIC_TRANSCRIPTION", reactome_pathways)
+grep("REACTOME_PI3K_AKT_ACTIVATION", reactome_pathways)
+grep("REACTOME_SIGNALING_BY_EGFR_IN_CANCER", reactome_pathways)
+grep("HALLMARK_KRAS_SIGNALING_UP", hallmark_pathways)
+
+mods1 <- readRDS("~//Documents//PhenoMap_Files//Trained_Models//reactome_trained_models_501_600.rds")
+g1_s_mod <- mods1[13]
+
+mods2 <- readRDS("~//Documents//PhenoMap_Files//Trained_Models//reactome_trained_models_901_1000.rds")
+pi3k_mod <- mods2[81]
+
+mods3 <- readRDS("~//Documents//PhenoMap_Files//Trained_Models//reactome_trained_models_1201_1300.rds")
+egfr_mod <- mods3[90]
+
+mods4 <- readRDS("~//Documents//PhenoMap_Files//Trained_Models//hallmark_trained_models.rds")
+kras_mod <- mods4[29]
+
+g1_s_imp <- data.frame(g1_s_mod[[1]]$importance)
+g1_s_imp$Gene <- row.names(g1_s_imp)
+g1_s_imp <- g1_s_imp[order(-g1_s_imp$IncNodePurity),]
+
+pi3k_imp <- data.frame(pi3k_mod[[1]]$importance)
+pi3k_imp$Gene <- row.names(pi3k_imp)
+pi3k_imp <- pi3k_imp[order(-pi3k_imp$IncNodePurity),]
+
+egfr_imp <- data.frame(egfr_mod[[1]]$importance)
+egfr_imp$Gene <- row.names(egfr_imp)
+egfr_imp <- egfr_imp[order(-egfr_imp$IncNodePurity),]
+
+kras_imp <- data.frame(kras_mod[[1]]$importance)
+kras_imp$Gene <- row.names(kras_imp)
+kras_imp <- kras_imp[order(-kras_imp$IncNodePurity),]
+
+new_g <- c()
+for (i in 1:nrow(g1_s_imp)){
+  spl <- strsplit(as.character(g1_s_imp$Gene[i]), split = "_")
+  new <- paste0(spl[[1]][2], " (", spl[[1]][1], ")")
+  new_g <- c(new_g, new)
+}
+g1_s_imp$Gene <- new_g
+g1_s_imp$Gene <- factor(g1_s_imp$Gene, levels = g1_s_imp$Gene)
+g1_plot <- ggplot(g1_s_imp[1:20,], aes(x = Gene, y = IncNodePurity)) +
+  geom_col(just = 0.5, fill = "#D81B60") +
+  theme_classic() +
+  ggtitle("G1_S_SPECIFIC_TRANSCRIPTION") +
+  theme(axis.text.x = element_text(angle = 45, hjust =1, vjust = 1), plot.title = element_text(hjust = 0.5))
+
+
+new_g <- c()
+for (i in 1:nrow(pi3k_imp)){
+  spl <- strsplit(as.character(pi3k_imp$Gene[i]), split = "_")
+  new <- paste0(spl[[1]][2], " (", spl[[1]][1], ")")
+  new_g <- c(new_g, new)
+}
+pi3k_imp$Gene <- new_g
+pi3k_imp$Gene <- factor(pi3k_imp$Gene, levels = pi3k_imp$Gene)
+pi3k_plot <- ggplot(pi3k_imp[1:20,], aes(x = Gene, y = IncNodePurity)) +
+  geom_col(just = 0.5, fill = "#1E88E5") +
+  theme_classic() +
+  ggtitle("PI3K_AKT_ACTIVATION") +
+  theme(axis.text.x = element_text(angle = 45, hjust =1, vjust = 1), plot.title = element_text(hjust = 0.5))
+
+
+new_g <- c()
+for (i in 1:nrow(egfr_imp)){
+  spl <- strsplit(as.character(egfr_imp$Gene[i]), split = "_")
+  new <- paste0(spl[[1]][2], " (", spl[[1]][1], ")")
+  new_g <- c(new_g, new)
+}
+egfr_imp$Gene <- new_g
+egfr_imp$Gene <- factor(egfr_imp$Gene, levels = egfr_imp$Gene)
+egfr_plot <- ggplot(egfr_imp[1:20,], aes(x = Gene, y = IncNodePurity)) +
+  geom_col(just = 0.5, fill = "#FFC107") +
+  theme_classic() +
+  ggtitle("SIGNALING_BY_EGFR_IN_CANCER") +
+  theme(axis.text.x = element_text(angle = 45, hjust =1, vjust = 1), plot.title = element_text(hjust = 0.5))
+
+new_g <- c()
+for (i in 1:nrow(kras_imp)){
+  spl <- strsplit(as.character(kras_imp$Gene[i]), split = "_")
+  new <- paste0(spl[[1]][2], " (", spl[[1]][1], ")")
+  new_g <- c(new_g, new)
+}
+kras_imp$Gene <- new_g
+kras_imp$Gene <- factor(kras_imp$Gene, levels = kras_imp$Gene)
+kras_plot <- ggplot(kras_imp[1:20,], aes(x = Gene, y = IncNodePurity)) +
+  geom_col(just = 0.5, fill = "#FFC107") +
+  theme_classic() +
+  ggtitle("KRAS_SIGNALING") +
+  theme(axis.text.x = element_text(angle = 45, hjust =1, vjust = 1), plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r}
+g1_plot <- ggplot(g1_s_imp[1:20,], aes(x = Gene, y = rev(IncNodePurity))) +
+  geom_point(color = "#D81B60", size = 4) +
+  geom_segment(aes(x = Gene, xend = Gene, y = 0, yend = rev(IncNodePurity)), color = "#D81B60", linewidth = 1.5) +
+    coord_flip()+
+  theme_classic() +
+  ggtitle("G1_S_SPECIFIC_TRANSCRIPTION") +
+  ylab("Increase Node Purity") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+egfr_plot <- ggplot(egfr_imp[1:20,], aes(x = Gene, y = rev(IncNodePurity))) +
+  geom_point(color = "#FFC107", size = 4) +
+  geom_segment(aes(x = Gene, xend = Gene, y = 0, yend = rev(IncNodePurity)), color = "#FFC107", linewidth = 1.5) +
+    coord_flip()+
+  theme_classic() +
+  ggtitle("SIGNALING_BY_EGFR_IN_CANCER") +
+  ylab("Increase Node Purity") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+pi3k_plot <- ggplot(pi3k_imp[1:20,], aes(x = Gene, y = rev(IncNodePurity))) +
+  geom_point(color = "#1E88E5", size = 4) +
+  geom_segment(aes(x = Gene, xend = Gene, y = 0, yend = rev(IncNodePurity)), color = "#1E88E5", linewidth = 1.5) +
+    coord_flip()+
+  theme_classic() +
+  ggtitle("PI3K_AKT_ACTIVATION") +
+  ylab("Increase Node Purity") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+kras_plot <- ggplot(kras_imp[1:20,], aes(x = Gene, y = rev(IncNodePurity))) +
+  geom_point(color = "#789E8C", size = 4) +
+  geom_segment(aes(x = Gene, xend = Gene, y = 0, yend = rev(IncNodePurity)), color = "#789E8C", linewidth = 1.5) +
+    coord_flip()+
+  theme_classic() +
+  ggtitle("KRAS_SIGNALING") +
+  ylab("Increase Node Purity") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+ggpubr::ggarrange(g1_plot, egfr_plot, pi3k_plot, kras_plot, ncol = 1, nrow = 4)
+```

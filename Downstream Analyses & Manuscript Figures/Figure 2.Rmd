@@ -1,0 +1,1824 @@
+---
+title: "Figure 2"
+author: "S. Grant"
+date: "2025-02-07"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(pbapply)
+library(limma)
+library(Hmisc)
+library(ggcorrplot)
+library(ggpubr)
+```
+
+
+Hallmark Scores
+```{r}
+hallmark_predicted <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split1_hallmark.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split2_hallmark.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split3_hallmark.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split4_hallmark.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split5_hallmark.csv"))[-1,]
+hallmark_real <- read.csv("~//Documents//Survival VAE//Pathway Scores//GSVA_Results_PANCAN_Hallmark.csv")
+hallmark_predicted <- hallmark_predicted[,-1]
+colnames(hallmark_predicted) <- c("PatientID", hallmark_real$X)
+```
+
+```{r}
+hallmark_real <- as.data.frame(t(hallmark_real))
+colnames(hallmark_real) <- hallmark_real[1,]
+hallmark_real <- hallmark_real[-1,]
+hallmark_real <- cbind(data.frame("PatientID" = substr(gsub("[.]", "-", rownames(hallmark_real)), 1, 12)), hallmark_real)
+hallmark_real <- subset(hallmark_real, PatientID %in% hallmark_predicted$PatientID)
+```
+
+```{r}
+## remove patients with multiple samples
+multiple_samples <- as.data.frame(table(hallmark_real$PatientID))
+multiple_samples <- subset(multiple_samples, Freq > 1)$Var1
+
+hallmark_real_fix <- subset(hallmark_real, PatientID %in% multiple_samples)
+hallmark_real_keep <- dplyr::setdiff(hallmark_real, hallmark_real_fix)
+
+hallmark_real_fixed <- data.frame()
+for (pt in multiple_samples){
+  sub <- subset(hallmark_real_fix, PatientID == pt)
+  hallmark_real_fixed <- rbind(hallmark_real_fixed, sub[1,])
+}
+
+hallmark_real <- rbind(hallmark_real_keep, hallmark_real_fixed)
+
+hallmark_real <- hallmark_real %>% 
+  arrange(PatientID, hallmark_predicted$PatientID)
+hallmark_predicted <- hallmark_predicted %>% 
+  arrange(PatientID, hallmark_real$PatientID)
+```
+
+```{r}
+clin <- read.csv("~//Documents//Survival VAE//PANCAN_All_Clinical.csv")
+clin <- clin[,c(2,17)]
+colnames(clin) <- c("PatientID", "Site")
+```
+
+```{r}
+calc_corr <- function(i, real, gen){
+  real_path <- as.numeric(real[,i])
+  gen_path <- as.numeric(gen[,i])
+  cor <- cor(real_path, gen_path)
+  return(cor)
+}
+
+hallmark_cor <- unlist(pblapply(2:ncol(hallmark_real), calc_corr, real = hallmark_real, gen = hallmark_predicted))
+hallmark_cor <- data.frame("Correlation" = hallmark_cor, "Pathway" = colnames(hallmark_real)[-1], "Pathway Set" = "Hallmark")
+hallmark_cor <- hallmark_cor[order(-hallmark_cor$Correlation),]
+hallmark_cor_top <- hallmark_cor[1:5,]
+```
+
+```{r}
+res <- rcorr(as.matrix(hallmark_real[,-1]))
+```
+
+```{r}
+gcor <- ggcorrplot(res$r, hc.order = TRUE, type = "upper",
+     outline.col = "white", p.mat = res$P, insig = "blank",
+     tl.cex = 8) +
+  theme(axis.text.x = element_blank(), axis.text.y = element_blank())
+```
+
+
+```{r}
+hallmark_cor2 <- hallmark_cor
+hallmark_cor2$Position <- "Blank"
+hallmark_cor2$Pathway <- factor(hallmark_cor2$Pathway, levels = hallmark_cor2$Pathway)
+
+hallmark_cor2 <- hallmark_cor2 %>% 
+  arrange(factor(Pathway, c(as.character(rev(unique(gcor$data$Var2))), "HALLMARK_HEME_METABOLISM")))
+hallmark_cor2 <- hallmark_cor2[-nrow(hallmark_cor2),]
+hallmark_cor2$Pathway <- factor(hallmark_cor2$Pathway, levels = rev(hallmark_cor2$Pathway))
+
+cor2 <- ggplot(hallmark_cor2, aes(x = Position, y = Pathway, fill= Correlation)) + 
+  geom_tile() +
+  theme_classic() +
+  xlab(NULL) +
+  theme(axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position = "bottom")
+```
+
+```{r}
+ggarrange(cor2, gcor, ncol = 2, nrow = 1, widths = c(0.25, 0.75), align = 'h')
+```
+
+
+
+Reactome Scores
+```{r}
+c2_predicted <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split1.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split2.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split3.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split4.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_test_predictions_FINAL_all_split5.csv"))[-1,]
+c2_real <- read.csv("~//Documents//Survival VAE//GSVA_Results_PANCAN.csv")
+c2_real <- c2_real[grepl("REACTOME", c2_real$X),]
+c2_predicted <- c2_predicted[,-1]
+colnames(c2_predicted) <- c("PatientID", c2_real$X)
+```
+
+```{r}
+c2_real <- as.data.frame(t(c2_real))
+colnames(c2_real) <- c2_real[1,]
+c2_real <- c2_real[-1,]
+c2_real <- cbind(data.frame("PatientID" = substr(gsub("[.]", "-", rownames(c2_real)), 1, 12)), c2_real)
+c2_real <- subset(c2_real, PatientID %in% c2_predicted$PatientID)
+```
+
+```{r}
+## remove patients with multiple samples
+multiple_samples <- as.data.frame(table(c2_real$PatientID))
+multiple_samples <- subset(multiple_samples, Freq > 1)$Var1
+
+c2_real_fix <- subset(c2_real, PatientID %in% multiple_samples)
+c2_real_keep <- dplyr::setdiff(c2_real, c2_real_fix)
+
+c2_real_fixed <- data.frame()
+for (pt in multiple_samples){
+  sub <- subset(c2_real_fix, PatientID == pt)
+  c2_real_fixed <- rbind(c2_real_fixed, sub[1,])
+}
+
+c2_real <- rbind(c2_real_keep, c2_real_fixed)
+
+c2_real <- c2_real %>% 
+  arrange(PatientID, c2_predicted$PatientID)
+c2_predicted <- c2_predicted %>% 
+  arrange(PatientID, c2_real$PatientID)
+```
+
+```{r}
+reactome_real <- c2_real
+reactome_predicted <- c2_predicted
+```
+
+```{r}
+reactome_cor <- unlist(pblapply(2:ncol(reactome_real), calc_corr, real = reactome_real, gen = reactome_predicted))
+reactome_cor <- data.frame("Correlation" = reactome_cor, "Pathway" = colnames(reactome_real)[-1], "Pathway Set" = "Reactome")
+reactome_cor <- reactome_cor[order(-reactome_cor$Correlation),]
+reactome_cor_top <- reactome_cor[1:161,]
+```
+KEGG
+```{r}
+c2_predicted <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split1_kegg.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split2_kegg.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split3_kegg.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split4_kegg.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//test_predictions_FINAL_split5_kegg.csv"))[-1,]
+c2_real <- read.csv("~//Documents//Survival VAE//GSVA_Results_PANCAN.csv")
+c2_real <- c2_real[grepl("KEGG", c2_real$X),]
+c2_predicted <- c2_predicted[,-1]
+colnames(c2_predicted) <- c("PatientID", c2_real$X)
+```
+
+```{r}
+c2_real <- as.data.frame(t(c2_real))
+colnames(c2_real) <- c2_real[1,]
+c2_real <- c2_real[-1,]
+c2_real <- cbind(data.frame("PatientID" = substr(gsub("[.]", "-", rownames(c2_real)), 1, 12)), c2_real)
+c2_real <- subset(c2_real, PatientID %in% c2_predicted$PatientID)
+```
+
+```{r}
+## remove patients with multiple samples
+multiple_samples <- as.data.frame(table(c2_real$PatientID))
+multiple_samples <- subset(multiple_samples, Freq > 1)$Var1
+
+c2_real_fix <- subset(c2_real, PatientID %in% multiple_samples)
+c2_real_keep <- dplyr::setdiff(c2_real, c2_real_fix)
+
+c2_real_fixed <- data.frame()
+for (pt in multiple_samples){
+  sub <- subset(c2_real_fix, PatientID == pt)
+  c2_real_fixed <- rbind(c2_real_fixed, sub[1,])
+}
+
+c2_real <- rbind(c2_real_keep, c2_real_fixed)
+
+c2_real <- c2_real %>% 
+  arrange(PatientID, c2_predicted$PatientID)
+c2_predicted <- c2_predicted %>% 
+  arrange(PatientID, c2_real$PatientID)
+```
+
+```{r}
+kegg_real <- c2_real
+kegg_predicted <- c2_predicted
+```
+
+```{r}
+kegg_cor <- unlist(pblapply(2:ncol(kegg_real), calc_corr, real = kegg_real, gen = kegg_predicted))
+kegg_cor <- data.frame("Correlation" = kegg_cor, "Pathway" = colnames(kegg_real)[-1], "Pathway Set" = "KEGG")
+kegg_cor <- kegg_cor[order(-kegg_cor$Correlation),]
+kegg_cor_top <- kegg_cor[1:19,]
+```
+
+```{r}
+res <- rcorr(as.matrix(kegg_real[,-1]))
+```
+
+```{r}
+gcor <- ggcorrplot(res$r, hc.order = TRUE, type = "upper",
+     outline.col = "white", p.mat = res$P, insig = "blank",
+     tl.cex = 8)+
+  theme(axis.text.x = element_blank(), axis.text.y = element_blank())
+```
+
+
+```{r}
+kegg_cor2 <- kegg_cor
+kegg_cor2$Position <- "Blank"
+kegg_cor2$Pathway <- factor(kegg_cor2$Pathway, levels = kegg_cor2$Pathway)
+
+kegg_cor2 <- kegg_cor2 %>% 
+  arrange(factor(Pathway, c(as.character(rev(unique(gcor$data$Var2))))))
+kegg_cor2 <- kegg_cor2[-nrow(kegg_cor2),]
+kegg_cor2$Pathway <- factor(kegg_cor2$Pathway, levels = rev(kegg_cor2$Pathway))
+
+cor2 <- ggplot(kegg_cor2, aes(x = Position, y = Pathway, fill= Correlation)) + 
+  geom_tile() +
+  theme_classic() +
+  xlab(NULL) +
+  theme(axis.text.x = element_blank(), legend.position = "bottom", axis.text.y = element_blank())
+```
+
+```{r}
+ggarrange(cor2, gcor, ncol = 2, nrow = 1, widths = c(0.25, 0.75), align = 'h')
+```
+
+
+C7
+```{r}
+c7_predicted <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_test_predictions_FINAL_all_split1.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_test_predictions_FINAL_all_split2.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_test_predictions_FINAL_all_split3.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_test_predictions_FINAL_all_split4.csv"),
+                            read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_test_predictions_FINAL_all_split5.csv"))[-1,]
+c7_real <- read.csv("~//Documents//Survival VAE//Pathway Scores//GSVA_Results_PANCAN_C7.csv")
+c7_predicted <- c7_predicted[,-1]
+colnames(c7_predicted) <- c("PatientID", c7_real$X)
+```
+
+```{r}
+c7_real <- as.data.frame(t(c7_real))
+colnames(c7_real) <- c7_real[1,]
+c7_real <- c7_real[-1,]
+c7_real <- cbind(data.frame("PatientID" = substr(gsub("[.]", "-", rownames(c7_real)), 1, 12)), c7_real)
+c7_real <- subset(c7_real, PatientID %in% c7_predicted$PatientID)
+```
+
+```{r}
+## remove patients with multiple samples
+multiple_samples <- as.data.frame(table(c7_real$PatientID))
+multiple_samples <- subset(multiple_samples, Freq > 1)$Var1
+
+c7_real_fix <- subset(c7_real, PatientID %in% multiple_samples)
+c7_real_keep <- dplyr::setdiff(c7_real, c7_real_fix)
+
+c7_real_fixed <- data.frame()
+for (pt in multiple_samples){
+  sub <- subset(c7_real_fix, PatientID == pt)
+  c7_real_fixed <- rbind(c7_real_fixed, sub[1,])
+}
+
+c7_real <- rbind(c7_real_keep, c7_real_fixed)
+
+c7_real <- c7_real %>% 
+  arrange(PatientID, c7_predicted$PatientID)
+c7_predicted <- c7_predicted %>% 
+  arrange(PatientID, c7_real$PatientID)
+```
+
+```{r}
+c7_cor <- unlist(pblapply(2:ncol(c7_real), calc_corr, real = c7_real, gen = c7_predicted))
+c7_cor <- data.frame("Correlation" = c7_cor, "Pathway" = colnames(c7_real)[-1], "Pathway Set" = "ImmuneSigDB")
+c7_cor <- c7_cor[order(-c7_cor$Correlation),]
+c7_cor_top <- c7_cor[1:487,]
+```
+
+
+
+Combine Dataframes
+```{r}
+hallmark_cor$Subset <- "All Pathways"
+reactome_cor$Subset <- "All Pathways"
+kegg_cor$Subset <- "All Pathways"
+c7_cor$Subset <- "All Pathways"
+hallmark_cor_top$Subset <- "Top 10% Pathways"
+reactome_cor_top$Subset <- "Top 10% Pathways"
+kegg_cor_top$Subset <- "Top 10% Pathways"
+c7_cor_top$Subset <- "Top 10% Pathways"
+
+cor_all <- rbind(hallmark_cor, reactome_cor, kegg_cor, c7_cor, hallmark_cor_top, reactome_cor_top, kegg_cor_top, c7_cor_top)
+```
+
+```{r}
+hallmark_predicted2 <- hallmark_predicted[,c("PatientID", as.character(subset(hallmark_cor, Correlation >= 0.25)$Pathway))]
+hallmark_real2 <- hallmark_real[,c("PatientID", as.character(subset(hallmark_cor, Correlation >= 0.25)$Pathway))]
+
+kegg_predicted2 <- kegg_predicted[,c("PatientID", as.character(subset(kegg_cor, Correlation >= 0.25)$Pathway))]
+kegg_real2 <- kegg_real[,c("PatientID", as.character(subset(kegg_cor, Correlation >= 0.25)$Pathway))]
+
+reactome_predicted2 <- reactome_predicted[,c("PatientID", as.character(subset(reactome_cor, Correlation >= 0.25)$Pathway))]
+reactome_real2 <- reactome_real[,c("PatientID", as.character(subset(reactome_cor, Correlation >= 0.25)$Pathway))]
+
+c7_predicted2 <- c7_predicted[,c("PatientID", as.character(subset(c7_cor, Correlation >= 0.25)$Pathway))]
+c7_real2 <- c7_real[,c("PatientID", as.character(subset(c7_cor, Correlation >= 0.25)$Pathway))]
+
+all_predicted <- merge(hallmark_predicted2, kegg_predicted2, by = "PatientID")
+all_predicted <- merge(all_predicted, reactome_predicted2, by = "PatientID")
+all_predicted <- merge(all_predicted, c7_predicted2, by = "PatientID")
+
+clin <- read.csv("~//Documents//Survival VAE//PANCAN_All_Clinical.csv")
+clin <- clin[,c(2,3,5,7:8)]
+
+clin$OS_STATUS <- clin$vital_status
+clin$OS_STATUS[clin$vital_status == "Dead"] <- 1
+clin$OS_STATUS[clin$vital_status == "Alive"] <- 0
+
+clin$OS_MONTHS <- NA
+for (i in 1:nrow(clin)){
+  if (clin$vital_status[i] == "Dead"){clin$OS_MONTHS[i] <- clin$days_to_death[i]}
+  if (clin$vital_status[i] == "Alive"){clin$OS_MONTHS[i] <- clin$days_to_last_followup[i]}
+}
+
+clin$OS_MONTHS <- as.numeric(clin$OS_MONTHS) / 12
+clin$OS_STATUS <- as.numeric(clin$OS_STATUS)
+clin$OS_MONTHS[clin$OS_MONTHS < 0] <- 0
+
+clin <- clin[,c(1,2,6,7)]
+colnames(clin)[1] <- "PATIENT_ID"
+
+clin <- subset(clin, PATIENT_ID %in% all_predicted$PatientID)
+all_predicted <- subset(all_predicted, PatientID %in% clin$PATIENT_ID)
+
+clin <- clin %>% 
+  arrange(PATIENT_ID, all_predicted$PatientID)
+all_predicted <- all_predicted %>% 
+  arrange(PatientID, clin$PATIENT_ID)
+
+write.csv(all_predicted, "~//Documents//Survival VAE//top_predicted_0.25.csv")
+write.csv(clin, "~//Documents//Survival VAE//clin_all_0.25.csv")
+```
+
+
+```{r}
+textsize = 18
+titlesize = 25
+```
+
+
+```{r}
+cor_all$Pathway.Set <- factor(cor_all$Pathway.Set, c("Hallmark", "KEGG", "Reactome", "ImmuneSigDB"))
+pathway_cor <- ggplot(cor_all, aes(y = Correlation, x = Pathway.Set, fill = Subset)) +
+    geom_violin(width=1.5, position = position_dodge(1)) +
+    geom_boxplot(width=0.25, color="white", alpha=0.2, position = position_dodge(1), outlier.shape = NA) +
+  theme_classic() +
+  scale_fill_manual(values = c("#D81B60", "#1E88E5")) +
+  xlab("Pathway Set") +
+            theme(plot.title = element_text(hjust = 0.5, size = titlesize), axis.text.x = element_text(size = textsize,
+                                                                                                       angle = 45, hjust = 0.5, vjust = 0.5), 
+                  axis.title.x = element_blank(), legend.text = element_text(size = textsize), 
+                  legend.title = element_text(size = textsize), axis.text.y = element_text(size = textsize), 
+                  axis.title.y = element_text(size = textsize))
+pathway_cor
+```
+```{r}
+hallmark_cor_top$Pathway <- factor(hallmark_cor_top$Pathway, levels = rev(hallmark_cor_top$Pathway))
+kegg_cor_top$Pathway <- factor(kegg_cor_top$Pathway, levels = rev(kegg_cor_top$Pathway))
+reactome_cor_top$Pathway <- factor(reactome_cor_top$Pathway, levels = rev(reactome_cor_top$Pathway))
+c7_cor_top$Pathway <- factor(c7_cor_top$Pathway, levels = rev(c7_cor_top$Pathway))
+
+toppath_df <- rbind(hallmark_cor_top, kegg_cor_top, reactome_cor_top[1:25,], c7_cor_top[1:25,])
+toppath_df$Pathway <- factor(toppath_df$Pathway, levels = rev(c(hallmark_cor_top$Pathway, kegg_cor_top$Pathway, reactome_cor_top$Pathway, c7_cor_top$Pathway)))
+
+all_toppaths <- ggplot(toppath_df, aes(x = Correlation, y = Pathway, fill = Pathway.Set)) +
+            geom_bar(stat = "identity", color = "black") +
+            theme_classic() +
+            scale_fill_manual(values = c("#D81B60", "#1E88E5", "#FFC107", "#004D40")) +
+            ylab(NULL) +
+            theme(plot.title = element_text(hjust = 0.5, size = titlesize), axis.text.x = element_text(size = textsize), 
+                  axis.title.x = element_text(size = textsize), legend.text = element_text(size = textsize), 
+                  legend.title = element_text(size = textsize), axis.text.y = element_text(size = 16))
+```
+
+```{r}
+hallmark_cor_bottom <- subset(hallmark_cor, Correlation < 0.25)
+kegg_cor_bottom <- subset(kegg_cor, Correlation < 0.25)
+reactome_cor_bottom <- subset(reactome_cor, Correlation < 0.25)
+c7_cor_bottom <- subset(c7_cor, Correlation < 0.25)
+```
+
+```{r}
+kegg_cor_bottom$Pathway <- factor(kegg_cor_bottom$Pathway, levels = rev(kegg_cor_bottom$Pathway))
+reactome_cor_bottom$Pathway <- factor(reactome_cor_bottom$Pathway, levels = rev(reactome_cor_bottom$Pathway))
+c7_cor_bottom$Pathway <- factor(c7_cor_bottom$Pathway, levels = rev(c7_cor_bottom$Pathway))
+
+bottompath_df <- rbind(kegg_cor_bottom, reactome_cor_bottom, c7_cor_bottom)
+bottompath_df$Pathway <- factor(bottompath_df$Pathway, levels = rev(c(kegg_cor_bottom$Pathway, reactome_cor_bottom$Pathway, c7_cor_bottom$Pathway)))
+
+all_bottompaths <- ggplot(bottompath_df, aes(x = Correlation, y = Pathway, fill = Pathway.Set)) +
+            geom_bar(stat = "identity", color = "black") +
+            theme_classic() +
+            scale_fill_manual(values = c("#1E88E5", "#FFC107", "#004D40")) +
+            ylab(NULL) +
+            theme(plot.title = element_text(hjust = 0.5, size = titlesize), axis.text.x = element_text(size = textsize), 
+                  axis.title.x = element_text(size = textsize), legend.text = element_text(size = textsize), 
+                  legend.title = element_text(size = textsize), axis.text.y = element_text(size = 16))
+```
+
+
+```{r eval=FALSE, include=FALSE}
+allpath_df <- rbind(hallmark_cor, kegg_cor, reactome_cor, c7_cor)
+allpath_df <- allpath_df[,-ncol(allpath_df)]
+#write.csv(allpath_df, "~//Documents//Survival VAE//Pathway Correlations (LASSO & RF).csv", row.names = FALSE)
+#write.csv(allpath_df, "~//Documents//Survival VAE//Supplementary Table 3.csv", row.names = FALSE)
+```
+
+
+
+Average number of genes included per pathway 
+```{r}
+hallmark_gene_filter <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//hallmark_genefilter_split1.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//hallmark_genefilter_split2.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//hallmark_genefilter_split3.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//hallmark_genefilter_split4.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//hallmark_genefilter_split5.csv"))
+
+count <- c()
+for (pathway in unique(hallmark_gene_filter$Pathway)){
+  count <- c(count, nrow(subset(hallmark_gene_filter, Pathway == pathway))/5)
+}
+hallmark_gene_numbers <- data.frame("Pathway" = unique(hallmark_gene_filter$Pathway), "Count" = count)
+
+hallmark_gene_numbers <- rbind(hallmark_gene_numbers, subset(hallmark_gene_numbers, Pathway %in% hallmark_cor_top$Pathway))
+hallmark_gene_numbers$Subset <- c(rep("All Pathways", nrow(hallmark_cor)), rep("Top 10% Pathways", nrow(hallmark_cor_top)))
+hallmark_gene_numbers$Pathway.Set <- "Hallmark"
+
+kegg_gene_filter <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//kegg_genefilter_split1.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//kegg_genefilter_split2.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//kegg_genefilter_split3.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//kegg_genefilter_split4.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//kegg_genefilter_split5.csv"))
+count <- c()
+for (pathway in unique(kegg_gene_filter$Pathway)){
+  count <- c(count, nrow(subset(kegg_gene_filter, Pathway == pathway))/5)
+}
+kegg_gene_numbers <- data.frame("Pathway" = unique(kegg_gene_filter$Pathway), "Count" = count)
+
+kegg_gene_numbers <- rbind(kegg_gene_numbers, subset(kegg_gene_numbers, Pathway %in% kegg_cor_top$Pathway))
+kegg_gene_numbers$Subset <- c(rep("All Pathways", nrow(kegg_cor)), rep("Top 10% Pathways", nrow(kegg_cor_top)))
+kegg_gene_numbers$Pathway.Set <- "KEGG"
+
+reactome_gene_filter <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_genefilter_split1.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_genefilter_split2.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_genefilter_split3.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_genefilter_split4.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//reactome_genefilter_split5.csv"))
+count <- c()
+for (pathway in unique(reactome_gene_filter$Pathway)){
+  count <- c(count, nrow(subset(reactome_gene_filter, Pathway == pathway))/5)
+}
+reactome_gene_numbers <- data.frame("Pathway" = unique(reactome_gene_filter$Pathway), "Count" = count)
+reactome_gene_numbers <- rbind(reactome_gene_numbers, subset(reactome_gene_numbers, Pathway %in% reactome_cor_top$Pathway))
+reactome_gene_numbers$Subset <- c(rep("All Pathways", nrow(reactome_cor)), rep("Top 10% Pathways", nrow(reactome_cor_top)))
+reactome_gene_numbers$Pathway.Set <- "Reactome"
+
+c7_gene_filter <- rbind(read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_genefilter_split1.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_genefilter_split2.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_genefilter_split3.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_genefilter_split4.csv"),
+                              read.csv("~//Documents//Survival VAE//Final Test Predictions//c7_genefilter_split5.csv"))
+count <- c()
+for (pathway in unique(c7_gene_filter$Pathway)){
+  count <- c(count, nrow(subset(c7_gene_filter, Pathway == pathway))/5)
+}
+c7_gene_numbers <- data.frame("Pathway" = unique(c7_gene_filter$Pathway), "Count" = count)
+c7_gene_numbers <- rbind(c7_gene_numbers, subset(c7_gene_numbers, Pathway %in% c7_cor_top$Pathway))
+c7_gene_numbers$Subset <- c(rep("All Pathways", nrow(c7_cor)), rep("Top 10% Pathways", nrow(c7_cor_top)))
+c7_gene_numbers$Pathway.Set <- "ImmuneSigDB"
+
+all_gene_numbers <- rbind(hallmark_gene_numbers[,c(2:4)], kegg_gene_numbers[,c(2:4)], reactome_gene_numbers[,c(2:4)], c7_gene_numbers[,c(2:4)])
+```
+
+```{r}
+#all_gene_numbers$Pathway.Set[all_gene_numbers$Pathway.Set == "C7"] <- "IMMUNESIGDB"
+all_gene_numbers$Pathway.Set <- factor(all_gene_numbers$Pathway.Set, c("Hallmark", "KEGG", "Reactome", "ImmuneSigDB"))
+gene_numbers_plot <- ggplot(subset(all_gene_numbers, Subset == "All Pathways"), aes(y = Count, x = Pathway.Set, fill = Subset)) +
+      geom_violin(width=1) +
+    geom_boxplot(width=0.5, color="white", alpha=0.2, position = position_dodge(1), outlier.shape = NA) +
+  theme_classic() +
+  scale_fill_manual(values = c("#D81B60", "#1E88E5")) +
+  xlab("Pathway Set") +
+            theme(plot.title = element_text(hjust = 0.5, size = titlesize), axis.text.x = element_text(size = textsize, angle = 45, hjust = 0.5, vjust = 0.5), 
+                  axis.title.x = element_blank(), legend.text = element_text(size = textsize), 
+                  legend.title = element_text(size = textsize), axis.text.y = element_text(size = textsize), 
+                  axis.title.y = element_text(size = textsize))
+gene_numbers_plot
+```
+
+
+```{r}
+all_folds <- data.frame()
+for (pathway in unique(hallmark_gene_filter$Pathway)){
+  genes_df <- as.data.frame(table(subset(hallmark_gene_filter, Pathway == pathway)$Gene))
+  genes_df <- subset(genes_df, Freq == 5)
+  rows <- data.frame("Gene" = genes_df$Var1, "Pathway" = pathway)
+  all_folds <- rbind(all_folds, rows)
+}
+
+hallmark_gene_freq <- as.data.frame(table(as.character(all_folds$Gene)))
+hallmark_gene_freq <- hallmark_gene_freq[order(-hallmark_gene_freq$Freq),]
+#hallmark_gene_freq <- subset(hallmark_gene_freq, Freq >= 5)
+
+all_folds <- data.frame()
+for (pathway in unique(kegg_gene_filter$Pathway)){
+  genes_df <- as.data.frame(table(subset(kegg_gene_filter, Pathway == pathway)$Gene))
+  genes_df <- subset(genes_df, Freq == 5)
+  rows <- data.frame("Gene" = genes_df$Var1, "Pathway" = pathway)
+  all_folds <- rbind(all_folds, rows)
+}
+
+kegg_gene_freq <- as.data.frame(table(as.character(all_folds$Gene)))
+kegg_gene_freq <- kegg_gene_freq[order(-kegg_gene_freq$Freq),]
+#kegg_gene_freq <- subset(kegg_gene_freq, Freq >= 19)
+
+all_folds <- data.frame()
+for (pathway in unique(reactome_gene_filter$Pathway)){
+  genes_df <- as.data.frame(table(subset(reactome_gene_filter, Pathway == pathway)$Gene))
+  genes_df <- subset(genes_df, Freq == 5)
+  rows <- data.frame("Gene" = genes_df$Var1, "Pathway" = pathway)
+  all_folds <- rbind(all_folds, rows)
+}
+
+reactome_gene_freq <- as.data.frame(table(as.character(all_folds$Gene)))
+reactome_gene_freq <- reactome_gene_freq[order(-reactome_gene_freq$Freq),]
+#reactome_gene_freq <- subset(reactome_gene_freq, Freq >= 161)
+
+all_folds <- data.frame()
+for (pathway in unique(c7_gene_filter$Pathway)){
+  genes_df <- as.data.frame(table(subset(c7_gene_filter, Pathway == pathway)$Gene))
+  genes_df <- subset(genes_df, Freq == 5)
+  rows <- data.frame("Gene" = genes_df$Var1, "Pathway" = pathway)
+  all_folds <- rbind(all_folds, rows)
+}
+
+c7_gene_freq <- as.data.frame(table(as.character(all_folds$Gene)))
+c7_gene_freq <- c7_gene_freq[order(-c7_gene_freq$Freq),]
+#c7_gene_freq <- subset(c7_gene_freq, Freq >= 487)
+
+common_genes <- intersect(intersect(intersect(hallmark_gene_freq$Var1, kegg_gene_freq$Var1), reactome_gene_freq$Var1),
+                          c7_gene_freq$Var1)
+
+hallmark_gene_freq$Group <- "No"
+hallmark_gene_freq$Group[hallmark_gene_freq$Var1 %in% common_genes] <- "Yes"
+kegg_gene_freq$Group <- "No"
+kegg_gene_freq$Group[kegg_gene_freq$Var1 %in% common_genes] <- "Yes"
+reactome_gene_freq$Group <- "No"
+reactome_gene_freq$Group[reactome_gene_freq$Var1 %in% common_genes] <- "Yes"
+c7_gene_freq$Group <- "No"
+c7_gene_freq$Group[c7_gene_freq$Var1 %in% common_genes] <- "Yes"
+```
+
+
+
+
+```{r}
+classes <- read.csv("~//Documents//hgnc_complete_set.csv")
+all_genes <- unique(c(hallmark_gene_freq$Var1, kegg_gene_freq$Var1, reactome_gene_freq$Var1, c7_gene_freq$Var1))
+all_genes <- gsub("[.]", "-", all_genes)
+
+alias1 <- c()
+alias2 <- c()
+alias3 <- c()
+alias4 <- c()
+alias5 <- c()
+alias6 <- c()
+alias7 <- c()
+alias8 <- c()
+alias9 <- c()
+alias10 <- c()
+alias11 <- c()
+alias12 <- c()
+for (i in 1:nrow(classes)){
+  split <- strsplit(classes$alias_symbol[i], split = "[|]")
+  alias1 <- c(alias1, split[[1]][1])
+  alias2 <- c(alias2, split[[1]][2])
+  alias3 <- c(alias3, split[[1]][3])
+  alias4 <- c(alias4, split[[1]][4])
+  alias5 <- c(alias5, split[[1]][5])
+  alias6 <- c(alias6, split[[1]][6])
+  alias7 <- c(alias7, split[[1]][7])
+  alias8 <- c(alias8, split[[1]][8])
+  alias9 <- c(alias9, split[[1]][9])
+  alias10 <- c(alias10, split[[1]][10])
+  alias11 <- c(alias11, split[[1]][11])
+  alias12 <- c(alias12, split[[1]][12])
+}
+
+classes$alias1 <- alias1
+classes$alias2 <- alias2
+classes$alias3 <- alias3
+classes$alias4 <- alias4
+classes$alias5 <- alias5
+classes$alias6 <- alias6
+classes$alias7 <- alias7
+classes$alias8 <- alias8
+classes$alias9 <- alias9
+classes$alias10 <- alias10
+classes$alias11 <- alias11
+classes$alias12 <- alias12
+```
+
+```{r}
+prev1 <- c()
+prev2 <- c()
+prev3 <- c()
+prev4 <- c()
+prev5 <- c()
+prev6 <- c()
+prev7 <- c()
+prev8 <- c()
+prev9 <- c()
+prev10 <- c()
+prev11 <- c()
+prev12 <- c()
+for (i in 1:nrow(classes)){
+  split <- strsplit(classes$prev_symbol[i], split = "[|]")
+  prev1 <- c(prev1, split[[1]][1])
+  prev2 <- c(prev2, split[[1]][2])
+  prev3 <- c(prev3, split[[1]][3])
+  prev4 <- c(prev4, split[[1]][4])
+  prev5 <- c(prev5, split[[1]][5])
+  prev6 <- c(prev6, split[[1]][6])
+  prev7 <- c(prev7, split[[1]][7])
+  prev8 <- c(prev8, split[[1]][8])
+  prev9 <- c(prev9, split[[1]][9])
+  prev10 <- c(prev10, split[[1]][10])
+  prev11 <- c(prev11, split[[1]][11])
+  prev12 <- c(prev12, split[[1]][12])
+}
+
+classes$prev1 <- prev1
+classes$prev2 <- prev2
+classes$prev3 <- prev3
+classes$prev4 <- prev4
+classes$prev5 <- prev5
+classes$prev6 <- prev6
+classes$prev7 <- prev7
+classes$prev8 <- prev8
+classes$prev9 <- prev9
+classes$prev10 <- prev10
+classes$prev11 <- prev11
+classes$prev12 <- prev12
+```
+
+
+```{r}
+classes_sub <- subset(classes, symbol %in% all_genes | symbol %in% c("HLA-B", "HLA-A", "IGLV3-1", "IGHV2-70", "SDHAF4", "CIMAP1B", "ADGRE1") |
+                    alias1 %in% all_genes | alias2 %in% all_genes | alias3 %in% all_genes | alias4 %in% all_genes |
+                    alias5 %in% all_genes | alias6 %in% all_genes | alias7 %in% all_genes | alias8 %in% all_genes | 
+                      alias9 %in% all_genes | alias10 %in% all_genes | alias11 %in% all_genes | alias12 %in% all_genes |
+                      prev1 %in% all_genes | prev2 %in% all_genes | prev3 %in% all_genes | prev4 %in% all_genes | 
+                      prev5 %in% all_genes | prev6 %in% all_genes | prev7 %in% all_genes | prev8 %in% all_genes | 
+                      prev9 %in% all_genes | prev10 %in% all_genes | prev11 %in% all_genes | prev12 %in% all_genes)
+
+#classes_sub <- classes_sub[,c(2,4)]
+#classes$locus_group[classes$locus_group == "other"]
+
+data <- as.data.frame(table(classes_sub$locus_group))
+```
+
+```{r}
+leftover <- setdiff(all_genes, classes_sub$symbol)
+leftover <- setdiff(leftover, classes_sub$alias1)
+leftover <- setdiff(leftover, classes_sub$alias2)
+leftover <- setdiff(leftover, classes_sub$alias3)
+leftover <- setdiff(leftover, classes_sub$alias4)
+leftover <- setdiff(leftover, classes_sub$alias5)
+leftover <- setdiff(leftover, classes_sub$alias6)
+leftover <- setdiff(leftover, classes_sub$alias7)
+leftover <- setdiff(leftover, classes_sub$alias8)
+leftover <- setdiff(leftover, classes_sub$alias9)
+leftover <- setdiff(leftover, classes_sub$alias10)
+leftover <- setdiff(leftover, classes_sub$alias11)
+leftover <- setdiff(leftover, classes_sub$alias12)
+leftover <- setdiff(leftover, classes_sub$prev1)
+leftover <- setdiff(leftover, classes_sub$prev2)
+leftover <- setdiff(leftover, classes_sub$prev3)
+leftover <- setdiff(leftover, classes_sub$prev4)
+leftover <- setdiff(leftover, classes_sub$prev5)
+leftover <- setdiff(leftover, classes_sub$prev6)
+leftover <- setdiff(leftover, classes_sub$prev7)
+leftover <- setdiff(leftover, classes_sub$prev8)
+leftover <- setdiff(leftover, classes_sub$prev9)
+leftover <- setdiff(leftover, classes_sub$prev10)
+leftover <- setdiff(leftover, classes_sub$prev11)
+leftover <- setdiff(leftover, classes_sub$prev12)
+leftover <- setdiff(leftover, classes_sub$prev_symbol)
+```
+
+
+
+```{r}
+# Compute the position of labels
+data <- data %>% 
+  arrange(desc(Var1)) %>%
+  mutate(prop = Freq / sum(data$Freq) *100) %>%
+  mutate(ypos = cumsum(prop)- 0.5*prop )
+
+data <- data %>% 
+  mutate(csum = rev(cumsum(rev(prop))), 
+         pos = prop/2 + lead(csum, 1),
+         pos = if_else(is.na(pos), prop/2, pos))
+
+
+# Basic piechart
+ggplot(data, aes(x="", y=prop, fill=Var1)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + 
+  theme(legend.position="none") +
+  scale_fill_manual(values = c("#D81B60", "#1E88E5", "#FFC107", "#004D40")) 
+
+```
+
+```{r}
+total_count_df <- data.frame()
+for (gene in all_genes){
+  sub_1 <- subset(hallmark_gene_freq, Var1 == gene)
+  sub_2 <- subset(kegg_gene_freq, Var1 == gene)
+  sub_3 <- subset(reactome_gene_freq, Var1 == gene)
+  sub_4 <- subset(c7_gene_freq, Var1 == gene)
+  sub <- rbind(sub_1, sub_2, sub_3, sub_4)
+  sum <- sum(sub$Freq)
+  total_count_df <- rbind(total_count_df, data.frame("Gene" = gene, "Freq" = sum))
+}
+```
+
+
+
+```{r}
+top_pseudogenes <- subset(total_count_df, Gene %in% c(subset(classes_sub, locus_group == "pseudogene")$symbol,
+                                                      subset(classes_sub, locus_group == "pseudogene")$alias2,
+                                                      subset(classes_sub, locus_group == "pseudogene")$alias3,
+                                                      subset(classes_sub, locus_group == "pseudogene")$alias4,
+                                                      subset(classes_sub, locus_group == "pseudogene")$alias5,
+                                                      subset(classes_sub, locus_group == "pseudogene")$alias6,
+                                                      subset(classes_sub, locus_group == "pseudogene")$alias7,
+                                                      subset(classes_sub, locus_group == "pseudogene")$alias8,
+                                                      subset(classes_sub, locus_group == "pseudogene")$alias9,
+                                                      subset(classes_sub, locus_group == "pseudogene")$alias10,
+                                                      subset(classes_sub, locus_group == "pseudogene")$alias11,
+                                                      subset(classes_sub, locus_group == "pseudogene")$alias12,
+                                                      subset(classes_sub, locus_group == "pseudogene")$prev1,
+                                                      subset(classes_sub, locus_group == "pseudogene")$prev2,
+                                                      subset(classes_sub, locus_group == "pseudogene")$prev3,
+                                                      subset(classes_sub, locus_group == "pseudogene")$prev4,
+                                                      subset(classes_sub, locus_group == "pseudogene")$prev5,
+                                                      subset(classes_sub, locus_group == "pseudogene")$prev6,
+                                                      subset(classes_sub, locus_group == "pseudogene")$prev7,
+                                                      subset(classes_sub, locus_group == "pseudogene")$prev8,
+                                                      subset(classes_sub, locus_group == "pseudogene")$prev9,
+                                                      subset(classes_sub, locus_group == "pseudogene")$prev10,
+                                                      subset(classes_sub, locus_group == "pseudogene")$prev11,
+                                                      subset(classes_sub, locus_group == "pseudogene")$prev12))
+top_pseudogenes <- top_pseudogenes[order(-top_pseudogenes$Freq),]
+```
+
+```{r}
+type <- "protein-coding gene"
+top_proteincoding <- subset(total_count_df, Gene %in% c(subset(classes_sub, locus_group == type)$symbol,
+                                                      subset(classes_sub, locus_group == type)$alias2,
+                                                      subset(classes_sub, locus_group == type)$alias3,
+                                                      subset(classes_sub, locus_group == type)$alias4,
+                                                      subset(classes_sub, locus_group == type)$alias5,
+                                                      subset(classes_sub, locus_group == type)$alias6,
+                                                      subset(classes_sub, locus_group == type)$alias7,
+                                                      subset(classes_sub, locus_group == type)$alias8,
+                                                      subset(classes_sub, locus_group == type)$alias9,
+                                                      subset(classes_sub, locus_group == type)$alias10,
+                                                      subset(classes_sub, locus_group == type)$alias11,
+                                                      subset(classes_sub, locus_group == type)$alias12,
+                                                      subset(classes_sub, locus_group == type)$prev1,
+                                                      subset(classes_sub, locus_group == type)$prev2,
+                                                      subset(classes_sub, locus_group == type)$prev3,
+                                                      subset(classes_sub, locus_group == type)$prev4,
+                                                      subset(classes_sub, locus_group == type)$prev5,
+                                                      subset(classes_sub, locus_group == type)$prev6,
+                                                      subset(classes_sub, locus_group == type)$prev7,
+                                                      subset(classes_sub, locus_group == type)$prev8,
+                                                      subset(classes_sub, locus_group == type)$prev9,
+                                                      subset(classes_sub, locus_group == type)$prev10,
+                                                      subset(classes_sub, locus_group == type)$prev11,
+                                                      subset(classes_sub, locus_group == type)$prev12))
+top_proteincoding <- top_proteincoding[order(-top_proteincoding$Freq),]
+```
+
+```{r}
+type <- "non-coding RNA"
+top_noncodingrna <- subset(total_count_df, Gene %in% c(subset(classes_sub, locus_group == type)$symbol,
+                                                      subset(classes_sub, locus_group == type)$alias2,
+                                                      subset(classes_sub, locus_group == type)$alias3,
+                                                      subset(classes_sub, locus_group == type)$alias4,
+                                                      subset(classes_sub, locus_group == type)$alias5,
+                                                      subset(classes_sub, locus_group == type)$alias6,
+                                                      subset(classes_sub, locus_group == type)$alias7,
+                                                      subset(classes_sub, locus_group == type)$alias8,
+                                                      subset(classes_sub, locus_group == type)$alias9,
+                                                      subset(classes_sub, locus_group == type)$alias10,
+                                                      subset(classes_sub, locus_group == type)$alias11,
+                                                      subset(classes_sub, locus_group == type)$alias12,
+                                                      subset(classes_sub, locus_group == type)$prev1,
+                                                      subset(classes_sub, locus_group == type)$prev2,
+                                                      subset(classes_sub, locus_group == type)$prev3,
+                                                      subset(classes_sub, locus_group == type)$prev4,
+                                                      subset(classes_sub, locus_group == type)$prev5,
+                                                      subset(classes_sub, locus_group == type)$prev6,
+                                                      subset(classes_sub, locus_group == type)$prev7,
+                                                      subset(classes_sub, locus_group == type)$prev8,
+                                                      subset(classes_sub, locus_group == type)$prev9,
+                                                      subset(classes_sub, locus_group == type)$prev10,
+                                                      subset(classes_sub, locus_group == type)$prev11,
+                                                      subset(classes_sub, locus_group == type)$prev12))
+top_noncodingrna <- top_noncodingrna[order(-top_noncodingrna$Freq),]
+```
+
+```{r}
+noncodingrna <- subset(classes, symbol %in% top_noncodingrna$Gene)
+
+noncodingrna_tab <- as.data.frame(table(noncodingrna$gene_group))
+noncodingrna_tab$Var1 <- as.character(noncodingrna_tab$Var1)
+
+noncodingrna_tab$Var1[grep("Micro", noncodingrna_tab$Var1)] <- "microRNAs"
+noncodingrna_tab$Var1[grep("Small nuclear", noncodingrna_tab$Var1)] <- "small nucleolar RNA non-coding host genes"
+noncodingrna_tab$Var1[grep("Small nucleolar", noncodingrna_tab$Var1)] <- "small nucleolar RNA non-coding host genes"
+
+noncodingrna_tab$Var1[noncodingrna_tab$Var1 %in% c("", "Doublecortin superfamily", "Glycosyltransferase family 2",
+                                                   "Nuclear RNase P complex subunits", "RNase MRP complex subunits",
+                                                   "Small NF90 (ILF3) associated RNAs", "Vault RNAs", "NME/NM23 family|SET complex",
+                                                   "RNAs, Ro60-associated Y", "Small Cajal body-specific RNAs")] <- "Other"
+noncodingrna_tab$Var1[noncodingrna_tab$Var1 %in% c()] <- "microRNAs"
+noncodingrna_tab$Var1[noncodingrna_tab$Var1 %in% c()] <- "small nucleolar RNA non-coding host genes"
+noncodingrna_tab$Var1[noncodingrna_tab$Var1 %in% c("Pseudoautosomal region 1|Long intergenic non-protein coding RNAs",
+                                                   "Long intergenic non-protein coding RNAs")] <- "long intergenic non-protein coding RNAs"
+noncodingrna_tab$Var1[noncodingrna_tab$Var1 %in% c("Antisense RNAs")] <- "antisense RNAs"
+noncodingrna_tab$Var1[noncodingrna_tab$Var1 %in% c("Overlapping transcripts")] <- "overlapping transcripts"
+noncodingrna_tab$Var1[noncodingrna_tab$Var1 %in% c("Intronic transcripts")] <- "intronic transcripts"
+noncodingrna_tab$Var1[noncodingrna_tab$Var1 %in% c("Long non-coding RNAs with non-systematic symbols")] <- "long non-coding RNAs with non-systematic symbols"
+noncodingrna_tab$Var1[noncodingrna_tab$Var1 %in% c(" ")] <- "divergent transcripts"
+noncodingrna_tab$Var1[noncodingrna_tab$Var1 %in% c("Long non-coding RNAs with FAM root symbol",
+                                                   "Family with sequence similarity 230|Long non-coding RNAs with FAM root symbol")] <- "long non-coding RNAs with FAM root systems"
+
+noncodingrna_tab2 <- data.frame()
+for (type in unique(noncodingrna_tab$Var1)){
+  sub <- subset(noncodingrna_tab, Var1 == type)
+  row <- data.frame("Var1" = type, "Freq" = sum(sub$Freq))
+  noncodingrna_tab2 <- rbind(noncodingrna_tab2, row)
+}
+```
+
+```{r}
+# Compute the position of labels
+noncodingrna_tab2 <- noncodingrna_tab2 %>% 
+  arrange(desc(Var1)) %>%
+  mutate(prop = Freq / sum(noncodingrna_tab2$Freq) *100) %>%
+  mutate(ypos = cumsum(prop)- 0.5*prop )
+
+noncodingrna_tab2 <- noncodingrna_tab2 %>% 
+  mutate(csum = rev(cumsum(rev(prop))), 
+         pos = prop/2 + lead(csum, 1),
+         pos = if_else(is.na(pos), prop/2, pos))
+
+noncodingrna_tab2$pos <- rev(noncodingrna_tab2$pos)
+noncodingrna_tab2$`HGNC Classification` <- as.character(noncodingrna_tab2$Var1)
+noncodingrna_tab2$`HGNC Classification`[noncodingrna_tab2$`HGNC Classification` == "Other"] <- "other" 
+noncodingrna_tab2$`HGNC Classification` <- factor(noncodingrna_tab2$`HGNC Classification`, levels = c("microRNAs", "small nucleolar RNA non-coding host genes",
+                                                                    "long intergenic non-protein coding RNAs",
+                                                                    "long non-coding RNAs with non-systematic symbols",
+                                                                    "long non-coding RNAs with FAM root systems",
+                                                                    "antisense RNAs", "intronic transcripts",
+                                                                    "overlapping transcripts", "other"))
+
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(9)
+# Basic piechart
+ggplot(noncodingrna_tab2, aes(x="", y=prop, fill=`HGNC Classification`)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + 
+  scale_fill_manual(values = mycolors) 
+
+```
+
+
+```{r}
+type <- "other"
+top_other <- subset(total_count_df, Gene %in% c(subset(classes_sub, locus_group == type)$symbol,
+                                                      subset(classes_sub, locus_group == type)$alias2,
+                                                      subset(classes_sub, locus_group == type)$alias3,
+                                                      subset(classes_sub, locus_group == type)$alias4,
+                                                      subset(classes_sub, locus_group == type)$alias5,
+                                                      subset(classes_sub, locus_group == type)$alias6,
+                                                      subset(classes_sub, locus_group == type)$alias7,
+                                                      subset(classes_sub, locus_group == type)$alias8,
+                                                      subset(classes_sub, locus_group == type)$alias9,
+                                                      subset(classes_sub, locus_group == type)$alias10,
+                                                      subset(classes_sub, locus_group == type)$alias11,
+                                                      subset(classes_sub, locus_group == type)$alias12,
+                                                      subset(classes_sub, locus_group == type)$prev1,
+                                                      subset(classes_sub, locus_group == type)$prev2,
+                                                      subset(classes_sub, locus_group == type)$prev3,
+                                                      subset(classes_sub, locus_group == type)$prev4,
+                                                      subset(classes_sub, locus_group == type)$prev5,
+                                                      subset(classes_sub, locus_group == type)$prev6,
+                                                      subset(classes_sub, locus_group == type)$prev7,
+                                                      subset(classes_sub, locus_group == type)$prev8,
+                                                      subset(classes_sub, locus_group == type)$prev9,
+                                                      subset(classes_sub, locus_group == type)$prev10,
+                                                      subset(classes_sub, locus_group == type)$prev11,
+                                                      subset(classes_sub, locus_group == type)$prev12))
+top_other <- top_other[order(-top_other$Freq),]
+```
+
+```{r}
+cosmic <- read.csv("~//Documents//Census_allTue May 13 22_01_58 2025.csv")
+all_genes <- classes_sub$symbol
+
+gene_class <- data.frame("Gene" = all_genes, "Class" = "Non-Cancer Genes")
+gene_class$Class[gene_class$Gene %in% cosmic$Gene.Symbol] <- "Cancer Genes"
+
+data <- as.data.frame(table(gene_class$Class))
+```
+
+```{r}
+# Compute the position of labels
+data <- data %>% 
+  arrange(desc(Var1)) %>%
+  mutate(prop = Freq / sum(data$Freq) *100) %>%
+  mutate(ypos = cumsum(prop)- 0.5*prop )
+
+data <- data %>% 
+  mutate(csum = rev(cumsum(rev(prop))), 
+         pos = prop/2 + lead(csum, 1),
+         pos = if_else(is.na(pos), prop/2, pos))
+
+data$pos <- rev(data$pos)
+
+# Basic piechart
+ggplot(data, aes(x="", y=prop, fill=Var1)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + 
+  theme(legend.position="none") +
+  
+  # geom_text(aes(y = ypos, label = Var1), color = "white", size=5) +
+  scale_fill_manual(values = c("#D81B60", "#1E88E5")) 
+  #  geom_label_repel(data = data,
+  #                 aes(y = pos, label = paste0(Var1, "\n n = ", Freq)),
+  #                 size = 4, nudge_x = 1, show.legend = FALSE, fill = "white") 
+```
+```{r}
+top_noncancer <- subset(total_count_df, Gene %in% subset(gene_class, Class == "Non-Cancer Genes")$Gene)
+top_noncancer <- top_noncancer[order(-top_noncancer$Freq),]
+```
+
+```{r}
+setdiff(cosmic$Gene.Symbol, all_genes)
+```
+
+```{r}
+all_gene_freq <- rbind(hallmark_gene_freq, kegg_gene_freq, reactome_gene_freq, c7_gene_freq)
+
+cosmic_freq <- subset(all_gene_freq, Var1 %in% subset(gene_class, Class == "Cancer Genes")$Gene)
+noncosmic_freq <- subset(all_gene_freq, Var1 %in% subset(gene_class, Class == "Non-Cancer Genes")$Gene)
+```
+
+```{r}
+cosmic_freq2 <- data.frame()
+for (gene in unique(cosmic_freq$Var1)){
+  sub <- subset(cosmic_freq, Var1 == gene)
+  row <- data.frame("Gene" = gene, "Freq" = sum(sub$Freq))
+  cosmic_freq2 <- rbind(cosmic_freq2, row)
+}
+
+noncosmic_freq2 <- data.frame()
+for (gene in unique(noncosmic_freq$Var1)){
+  sub <- subset(noncosmic_freq, Var1 == gene)
+  row <- data.frame("Gene" = gene, "Freq" = sum(sub$Freq))
+  noncosmic_freq2 <- rbind(noncosmic_freq2, row)
+}
+```
+
+```{r}
+cosmic_freq2$Type <- "Cancer Genes"
+noncosmic_freq2$Type <- "Non-Cancer Genes"
+all_gene_freq <- rbind(cosmic_freq2, noncosmic_freq2)
+all_gene_freq <- subset(all_gene_freq, Freq > 0)
+
+all_gene_freq$Freq2 <- log10(all_gene_freq$Freq + 1) 
+
+freq_plot <- ggplot(all_gene_freq, aes(x = Type, y = Freq2, fill = Type)) +
+      geom_violin(width=1, trim = FALSE) +
+    geom_boxplot(width=0.2, color="white", alpha=0.2, position = position_dodge(1), outlier.shape = NA) +
+  #geom_density_ridges()+
+  theme_classic() +
+  scale_fill_manual(values = c("#D81B60", "#1E88E5")) +
+  ylab("Frequency") +
+            theme(plot.title = element_text(hjust = 0.5, size = titlesize), axis.text.x = element_text(size = textsize, angle = 45, hjust = 0.5, vjust = 0.5), 
+                  axis.title.x = element_blank(), legend.text = element_text(size = textsize), 
+                  legend.title = element_text(size = textsize), axis.text.y = element_text(size = textsize), 
+                  axis.title.y = element_text(size = textsize))
+freq_plot
+```
+
+
+
+####### top 10% only
+
+```{r}
+hallmark_gene_filter <- subset(hallmark_gene_filter, Pathway %in% hallmark_cor_top$Pathway)
+kegg_gene_filter <- subset(kegg_gene_filter, Pathway %in% kegg_cor_top$Pathway)
+reactome_gene_filter <- subset(reactome_gene_filter, Pathway %in% reactome_cor_top$Pathway)
+c7_gene_filter <- subset(c7_gene_filter, Pathway %in% c7_cor_top$Pathway)
+
+all_folds <- data.frame()
+for (pathway in unique(hallmark_gene_filter$Pathway)){
+  genes_df <- as.data.frame(table(subset(hallmark_gene_filter, Pathway == pathway)$Gene))
+  genes_df <- subset(genes_df, Freq == 5)
+  rows <- data.frame("Gene" = genes_df$Var1, "Pathway" = pathway)
+  all_folds <- rbind(all_folds, rows)
+}
+
+hallmark_gene_freq <- as.data.frame(table(all_folds$Gene))
+hallmark_gene_freq <- hallmark_gene_freq[order(-hallmark_gene_freq$Freq),]
+#hallmark_gene_freq <- subset(hallmark_gene_freq, Freq >= 5)
+
+all_folds <- data.frame()
+for (pathway in unique(kegg_gene_filter$Pathway)){
+  genes_df <- as.data.frame(table(subset(kegg_gene_filter, Pathway == pathway)$Gene))
+  genes_df <- subset(genes_df, Freq == 5)
+  rows <- data.frame("Gene" = genes_df$Var1, "Pathway" = pathway)
+  all_folds <- rbind(all_folds, rows)
+}
+
+kegg_gene_freq <- as.data.frame(table(all_folds$Gene))
+kegg_gene_freq <- kegg_gene_freq[order(-kegg_gene_freq$Freq),]
+#kegg_gene_freq <- subset(kegg_gene_freq, Freq >= 19)
+
+all_folds <- data.frame()
+for (pathway in unique(reactome_gene_filter$Pathway)){
+  genes_df <- as.data.frame(table(subset(reactome_gene_filter, Pathway == pathway)$Gene))
+  genes_df <- subset(genes_df, Freq == 5)
+  rows <- data.frame("Gene" = genes_df$Var1, "Pathway" = pathway)
+  all_folds <- rbind(all_folds, rows)
+}
+
+reactome_gene_freq <- as.data.frame(table(all_folds$Gene))
+reactome_gene_freq <- reactome_gene_freq[order(-reactome_gene_freq$Freq),]
+#reactome_gene_freq <- subset(reactome_gene_freq, Freq >= 161)
+
+all_folds <- data.frame()
+for (pathway in unique(c7_gene_filter$Pathway)){
+  genes_df <- as.data.frame(table(subset(c7_gene_filter, Pathway == pathway)$Gene))
+  genes_df <- subset(genes_df, Freq == 5)
+  rows <- data.frame("Gene" = genes_df$Var1, "Pathway" = pathway)
+  all_folds <- rbind(all_folds, rows)
+}
+
+c7_gene_freq <- as.data.frame(table(all_folds$Gene))
+c7_gene_freq <- c7_gene_freq[order(-c7_gene_freq$Freq),]
+#c7_gene_freq <- subset(c7_gene_freq, Freq >= 487)
+
+common_genes <- intersect(intersect(intersect(hallmark_gene_freq$Var1, kegg_gene_freq$Var1), reactome_gene_freq$Var1),
+                          c7_gene_freq$Var1)
+
+hallmark_gene_freq$Group <- "No"
+hallmark_gene_freq$Group[hallmark_gene_freq$Var1 %in% common_genes] <- "Yes"
+kegg_gene_freq$Group <- "No"
+kegg_gene_freq$Group[kegg_gene_freq$Var1 %in% common_genes] <- "Yes"
+reactome_gene_freq$Group <- "No"
+reactome_gene_freq$Group[reactome_gene_freq$Var1 %in% common_genes] <- "Yes"
+c7_gene_freq$Group <- "No"
+c7_gene_freq$Group[c7_gene_freq$Var1 %in% common_genes] <- "Yes"
+```
+
+```{r}
+classes <- read.csv("~//Documents//hgnc_complete_set.csv")
+all_genes <- unique(c(hallmark_gene_freq$Var1, kegg_gene_freq$Var1, reactome_gene_freq$Var1, c7_gene_freq$Var1))
+all_genes <- gsub("[.]", "-", all_genes)
+
+alias1 <- c()
+alias2 <- c()
+alias3 <- c()
+alias4 <- c()
+alias5 <- c()
+alias6 <- c()
+alias7 <- c()
+alias8 <- c()
+alias9 <- c()
+alias10 <- c()
+alias11 <- c()
+alias12 <- c()
+for (i in 1:nrow(classes)){
+  split <- strsplit(classes$alias_symbol[i], split = "[|]")
+  alias1 <- c(alias1, split[[1]][1])
+  alias2 <- c(alias2, split[[1]][2])
+  alias3 <- c(alias3, split[[1]][3])
+  alias4 <- c(alias4, split[[1]][4])
+  alias5 <- c(alias5, split[[1]][5])
+  alias6 <- c(alias6, split[[1]][6])
+  alias7 <- c(alias7, split[[1]][7])
+  alias8 <- c(alias8, split[[1]][8])
+  alias9 <- c(alias9, split[[1]][9])
+  alias10 <- c(alias10, split[[1]][10])
+  alias11 <- c(alias11, split[[1]][11])
+  alias12 <- c(alias12, split[[1]][12])
+}
+
+classes$alias1 <- alias1
+classes$alias2 <- alias2
+classes$alias3 <- alias3
+classes$alias4 <- alias4
+classes$alias5 <- alias5
+classes$alias6 <- alias6
+classes$alias7 <- alias7
+classes$alias8 <- alias8
+classes$alias9 <- alias9
+classes$alias10 <- alias10
+classes$alias11 <- alias11
+classes$alias12 <- alias12
+```
+
+```{r}
+prev1 <- c()
+prev2 <- c()
+prev3 <- c()
+prev4 <- c()
+prev5 <- c()
+prev6 <- c()
+prev7 <- c()
+prev8 <- c()
+prev9 <- c()
+prev10 <- c()
+prev11 <- c()
+prev12 <- c()
+for (i in 1:nrow(classes)){
+  split <- strsplit(classes$prev_symbol[i], split = "[|]")
+  prev1 <- c(prev1, split[[1]][1])
+  prev2 <- c(prev2, split[[1]][2])
+  prev3 <- c(prev3, split[[1]][3])
+  prev4 <- c(prev4, split[[1]][4])
+  prev5 <- c(prev5, split[[1]][5])
+  prev6 <- c(prev6, split[[1]][6])
+  prev7 <- c(prev7, split[[1]][7])
+  prev8 <- c(prev8, split[[1]][8])
+  prev9 <- c(prev9, split[[1]][9])
+  prev10 <- c(prev10, split[[1]][10])
+  prev11 <- c(prev11, split[[1]][11])
+  prev12 <- c(prev12, split[[1]][12])
+}
+
+classes$prev1 <- prev1
+classes$prev2 <- prev2
+classes$prev3 <- prev3
+classes$prev4 <- prev4
+classes$prev5 <- prev5
+classes$prev6 <- prev6
+classes$prev7 <- prev7
+classes$prev8 <- prev8
+classes$prev9 <- prev9
+classes$prev10 <- prev10
+classes$prev11 <- prev11
+classes$prev12 <- prev12
+```
+
+
+```{r}
+classes_sub <- subset(classes, symbol %in% all_genes | symbol %in% c("HLA-B", "HLA-A", "IGLV3-1", "IGHV2-70", "SDHAF4", "CIMAP1B", "ADGRE1") |
+                    alias1 %in% all_genes | alias2 %in% all_genes | alias3 %in% all_genes | alias4 %in% all_genes |
+                    alias5 %in% all_genes | alias6 %in% all_genes | alias7 %in% all_genes | alias8 %in% all_genes | 
+                      alias9 %in% all_genes | alias10 %in% all_genes | alias11 %in% all_genes | alias12 %in% all_genes |
+                      prev1 %in% all_genes | prev2 %in% all_genes | prev3 %in% all_genes | prev4 %in% all_genes | 
+                      prev5 %in% all_genes | prev6 %in% all_genes | prev7 %in% all_genes | prev8 %in% all_genes | 
+                      prev9 %in% all_genes | prev10 %in% all_genes | prev11 %in% all_genes | prev12 %in% all_genes)
+
+#classes_sub <- classes_sub[,c(2,4)]
+#classes$locus_group[classes$locus_group == "other"]
+
+data <- as.data.frame(table(classes_sub$locus_group))
+```
+
+
+```{r}
+# Compute the position of labels
+data <- data %>% 
+  arrange(desc(Var1)) %>%
+  mutate(prop = Freq / sum(data$Freq) *100) %>%
+  mutate(ypos = cumsum(prop)- 0.5*prop )
+
+data <- data %>% 
+  mutate(csum = rev(cumsum(rev(prop))), 
+         pos = prop/2 + lead(csum, 1),
+         pos = if_else(is.na(pos), prop/2, pos))
+
+
+# Basic piechart
+ggplot(data, aes(x="", y=prop, fill=Var1)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + 
+  theme(legend.position="none") +
+  scale_fill_manual(values = c("#D81B60", "#1E88E5", "#FFC107", "#004D40")) 
+
+```
+
+```{r}
+cosmic <- read.csv("~//Documents//Census_allTue May 13 22_01_58 2025.csv")
+all_genes <- classes_sub$symbol
+
+gene_class <- data.frame("Gene" = all_genes, "Class" = "Non-Cancer Genes")
+gene_class$Class[gene_class$Gene %in% cosmic$Gene.Symbol] <- "Cancer Genes"
+
+data <- as.data.frame(table(gene_class$Class))
+```
+
+```{r}
+# Compute the position of labels
+data <- data %>% 
+  arrange(desc(Var1)) %>%
+  mutate(prop = Freq / sum(data$Freq) *100) %>%
+  mutate(ypos = cumsum(prop)- 0.5*prop )
+
+data <- data %>% 
+  mutate(csum = rev(cumsum(rev(prop))), 
+         pos = prop/2 + lead(csum, 1),
+         pos = if_else(is.na(pos), prop/2, pos))
+
+data$pos <- rev(data$pos)
+
+# Basic piechart
+ggplot(data, aes(x="", y=prop, fill=Var1)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + 
+  theme(legend.position="none") +
+  
+  # geom_text(aes(y = ypos, label = Var1), color = "white", size=5) +
+  scale_fill_manual(values = c("#D81B60", "#1E88E5")) 
+  #  geom_label_repel(data = data,
+  #                 aes(y = pos, label = paste0(Var1, "\n n = ", Freq)),
+  #                 size = 4, nudge_x = 1, show.legend = FALSE, fill = "white") 
+```
+
+```{r}
+
+```
+
+
+```{r}
+phenotypes <- read.csv("~//Documents//Survival VAE//Pathway_Phenotypes_v3.csv")
+
+all_paths <- rbind(hallmark_gene_filter, kegg_gene_filter, reactome_gene_filter, c7_gene_filter)
+
+
+
+
+df_phenotypes <- data.frame()
+
+for (i in 1:ncol(phenotypes)){
+  pheno <- subset(all_paths, Pathway %in% phenotypes[,i])
+  pheno$Phenotype <- colnames(phenotypes)[i]
+  
+  gene_freq <- as.data.frame(table(pheno$Genes))
+  gene_freq <- gene_freq[order(-gene_freq$Freq),]
+  
+  pheno <- subset(pheno, Genes %in% gene_freq$Var1[1:25])
+  
+  df_phenotypes <- rbind(df_phenotypes, pheno)
+}
+
+set.seed(1)
+pheno_graph <- data.frame("from" = df_phenotypes$Phenotype, "to" = df_phenotypes$Genes)
+```
+
+
+
+
+
+
+
+```{r}
+phenotypes <- read.csv("~//Documents//Survival VAE//Pathway_Phenotypes_v3.csv")
+
+pheno_scores <- data.frame("PatientID" = all_predicted$PatientID)
+for (i in 1:ncol(phenotypes)){
+  pheno <- na.omit(phenotypes[,i])
+  pheno <- intersect(pheno, colnames(all_predicted))
+  sub <- all_predicted[,pheno]
+  sub <- abs(sub)
+  count <- apply(sub, 1, mean)
+  #count <- (count - min(count))/(max(count)-min(count))
+  cols <- data.frame("Phenotype" = count, "PatientID" = all_predicted$PatientID)
+  colnames(cols)[1] <- colnames(phenotypes)[i]
+  pheno_scores <- merge(pheno_scores, cols, by = "PatientID")
+}
+
+pheno_scores_type <- data.frame()
+for (type in c("ESCA", "BRCA", "STAD", "LUAD", "CESC", "THCA", "GBM", "PRAD")){
+  samples <- subset(clin, acronym == type)$PATIENT_ID
+  if (type == "GBM"){
+    samples <- subset(clin, acronym %in% c("LGG", "GBM"))$PATIENT_ID
+  }
+  sub <- subset(pheno_scores, PatientID %in% samples)
+  avgs <- apply(sub[,-1], 2, mean)
+  rows <- data.frame("Type" = type, "Phenotype" = colnames(phenotypes), "Mean_Score" = avgs)
+  pheno_scores_type <- rbind(pheno_scores_type, rows)
+}
+
+pheno_scores_type$Phenotype[pheno_scores_type$Phenotype == "DNA_REPAIR"] <- "DNA REPAIR"
+pheno_scores_type$Phenotype[pheno_scores_type$Phenotype == "EVADE_GROWTH_SUPPRESSOR"] <- "EVADE GROWTH SUPPRESSORS"
+pheno_scores_type$Phenotype[pheno_scores_type$Phenotype == "HORMONE_SIGNALING"] <- "HORMONE SIGNALING"
+pheno_scores_type$Phenotype[pheno_scores_type$Phenotype == "RESIST_CELL_DEATH"] <- "RESIST CELL DEATH"
+pheno_scores_type$Phenotype[pheno_scores_type$Phenotype == "VASCULATOR"] <- "VASCULATURE"
+
+```
+
+```{r}
+blca_scores <- subset(pheno_scores_type, Type == "PRAD")
+
+blca_scores$Phenotype <- as.factor(blca_scores$Phenotype)
+# Set a number of 'empty bar' to add at the end of each group
+empty_bar <- 1
+to_add <- data.frame( matrix(NA, empty_bar*nlevels(blca_scores$Phenotype), ncol(blca_scores)) )
+colnames(to_add) <- colnames(blca_scores)
+to_add$Group <- rep(levels(blca_scores$Phenotype), each=empty_bar)
+#df_pheno_msk <- rbind(df_pheno_msk, to_add)
+blca_scores <- blca_scores %>% arrange(Phenotype)
+blca_scores$id <- seq(1, nrow(blca_scores))
+
+# Get the name and the y position of each label
+label_data <- blca_scores
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar     # I substract 0.5 because the letter must have the angle of the center of the bars. Not extreme right(1) or extreme left (0)
+label_data$hjust <- ifelse( angle < -90, 1, 0)
+label_data$angle <- ifelse(angle < -90, angle+180, angle)
+
+
+# prepare a data frame for base lines
+base_data <- blca_scores %>% 
+  group_by(Phenotype) %>% 
+  dplyr::summarize(start=min(id), end=max(id) - empty_bar) %>% 
+  rowwise() %>% 
+  mutate(title=mean(c(start, end)))
+
+# prepare a data frame for grid (scales)
+grid_data <- base_data
+grid_data$end <- grid_data$end[ c( nrow(grid_data), 1:nrow(grid_data)-1)] + 1
+grid_data$start <- grid_data$start - 1
+grid_data <- grid_data[-1,]
+
+
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(11)
+
+blca_scores$minmax <- (blca_scores$Mean_Score - min(blca_scores$Mean_Score)) / (max(blca_scores$Mean_Score) - min(blca_scores$Mean_Score))
+
+p_prad <- ggplot(blca_scores, aes(x=as.factor(id), y=Mean_Score, fill=Phenotype)) +  
+  geom_col(aes(x=as.factor(id), y=Mean_Score, fill=Phenotype), position = "dodge2") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = unit(rep(-1,4), "cm")
+  ) +
+  coord_polar() +
+  scale_fill_manual(values = mycolors) 
+p_prad
+```
+```{r}
+blca_scores <- subset(pheno_scores_type, Type == "BRCA")
+
+blca_scores$Phenotype <- as.factor(blca_scores$Phenotype)
+# Set a number of 'empty bar' to add at the end of each group
+empty_bar <- 1
+to_add <- data.frame( matrix(NA, empty_bar*nlevels(blca_scores$Phenotype), ncol(blca_scores)) )
+colnames(to_add) <- colnames(blca_scores)
+to_add$Group <- rep(levels(blca_scores$Phenotype), each=empty_bar)
+#df_pheno_msk <- rbind(df_pheno_msk, to_add)
+blca_scores <- blca_scores %>% arrange(Phenotype)
+blca_scores$id <- seq(1, nrow(blca_scores))
+
+# Get the name and the y position of each label
+label_data <- blca_scores
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar     # I substract 0.5 because the letter must have the angle of the center of the bars. Not extreme right(1) or extreme left (0)
+label_data$hjust <- ifelse( angle < -90, 1, 0)
+label_data$angle <- ifelse(angle < -90, angle+180, angle)
+
+
+# prepare a data frame for base lines
+base_data <- blca_scores %>% 
+  group_by(Phenotype) %>% 
+  dplyr::summarize(start=min(id), end=max(id) - empty_bar) %>% 
+  rowwise() %>% 
+  mutate(title=mean(c(start, end)))
+
+# prepare a data frame for grid (scales)
+grid_data <- base_data
+grid_data$end <- grid_data$end[ c( nrow(grid_data), 1:nrow(grid_data)-1)] + 1
+grid_data$start <- grid_data$start - 1
+grid_data <- grid_data[-1,]
+
+
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(11)
+blca_scores$minmax <- (blca_scores$Mean_Score - min(blca_scores$Mean_Score)) / (max(blca_scores$Mean_Score) - min(blca_scores$Mean_Score))
+
+
+p_brca <- ggplot(blca_scores, aes(x=as.factor(id), y=Mean_Score, fill=Phenotype)) +  
+  geom_col(aes(x=as.factor(id), y=Mean_Score, fill=Phenotype), position = "dodge2") +
+  theme_minimal() +
+  theme(
+    legend.text = element_text(size = 25),
+    legend.title = element_text(size = 25),
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = unit(rep(-1,4), "cm")
+  ) +
+  guides(color = guide_legend(nrow = 4))+
+  coord_polar() +
+  scale_fill_manual(values = mycolors) 
+p_brca
+```
+
+```{r}
+blca_scores <- subset(pheno_scores_type, Type == "CESC")
+
+blca_scores$Phenotype <- as.factor(blca_scores$Phenotype)
+# Set a number of 'empty bar' to add at the end of each group
+empty_bar <- 1
+to_add <- data.frame( matrix(NA, empty_bar*nlevels(blca_scores$Phenotype), ncol(blca_scores)) )
+colnames(to_add) <- colnames(blca_scores)
+to_add$Group <- rep(levels(blca_scores$Phenotype), each=empty_bar)
+#df_pheno_msk <- rbind(df_pheno_msk, to_add)
+blca_scores <- blca_scores %>% arrange(Phenotype)
+blca_scores$id <- seq(1, nrow(blca_scores))
+
+# Get the name and the y position of each label
+label_data <- blca_scores
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar     # I substract 0.5 because the letter must have the angle of the center of the bars. Not extreme right(1) or extreme left (0)
+label_data$hjust <- ifelse( angle < -90, 1, 0)
+label_data$angle <- ifelse(angle < -90, angle+180, angle)
+
+
+# prepare a data frame for base lines
+base_data <- blca_scores %>% 
+  group_by(Phenotype) %>% 
+  dplyr::summarize(start=min(id), end=max(id) - empty_bar) %>% 
+  rowwise() %>% 
+  mutate(title=mean(c(start, end)))
+
+# prepare a data frame for grid (scales)
+grid_data <- base_data
+grid_data$end <- grid_data$end[ c( nrow(grid_data), 1:nrow(grid_data)-1)] + 1
+grid_data$start <- grid_data$start - 1
+grid_data <- grid_data[-1,]
+
+
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(11)
+
+blca_scores$minmax <- (blca_scores$Mean_Score - min(blca_scores$Mean_Score)) / (max(blca_scores$Mean_Score) - min(blca_scores$Mean_Score))
+
+p_cesc <- ggplot(blca_scores, aes(x=as.factor(id), y=Mean_Score, fill=Phenotype)) +  
+  geom_col(aes(x=as.factor(id), y=Mean_Score, fill=Phenotype), position = "dodge2") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = unit(rep(-1,4), "cm")
+  ) +
+  coord_polar() +
+  scale_fill_manual(values = mycolors) 
+p_cesc
+```
+```{r}
+blca_scores <- subset(pheno_scores_type, Type == "LUAD")
+
+blca_scores$Phenotype <- as.factor(blca_scores$Phenotype)
+# Set a number of 'empty bar' to add at the end of each group
+empty_bar <- 1
+to_add <- data.frame( matrix(NA, empty_bar*nlevels(blca_scores$Phenotype), ncol(blca_scores)) )
+colnames(to_add) <- colnames(blca_scores)
+to_add$Group <- rep(levels(blca_scores$Phenotype), each=empty_bar)
+#df_pheno_msk <- rbind(df_pheno_msk, to_add)
+blca_scores <- blca_scores %>% arrange(Phenotype)
+blca_scores$id <- seq(1, nrow(blca_scores))
+
+# Get the name and the y position of each label
+label_data <- blca_scores
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar     # I substract 0.5 because the letter must have the angle of the center of the bars. Not extreme right(1) or extreme left (0)
+label_data$hjust <- ifelse( angle < -90, 1, 0)
+label_data$angle <- ifelse(angle < -90, angle+180, angle)
+
+
+# prepare a data frame for base lines
+base_data <- blca_scores %>% 
+  group_by(Phenotype) %>% 
+  dplyr::summarize(start=min(id), end=max(id) - empty_bar) %>% 
+  rowwise() %>% 
+  mutate(title=mean(c(start, end)))
+
+# prepare a data frame for grid (scales)
+grid_data <- base_data
+grid_data$end <- grid_data$end[ c( nrow(grid_data), 1:nrow(grid_data)-1)] + 1
+grid_data$start <- grid_data$start - 1
+grid_data <- grid_data[-1,]
+
+
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(11)
+blca_scores$minmax <- (blca_scores$Mean_Score - min(blca_scores$Mean_Score)) / (max(blca_scores$Mean_Score) - min(blca_scores$Mean_Score))
+
+
+p_luad <- ggplot(blca_scores, aes(x=as.factor(id), y=Mean_Sscore, fill=Phenotype)) +  
+  geom_col(aes(x=as.factor(id), y=Mean_Score, fill=Phenotype), position = "dodge2") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = unit(rep(-1,4), "cm")
+  ) +
+  coord_polar() +
+  scale_fill_manual(values = mycolors) 
+p_luad
+```
+```{r}
+blca_scores <- subset(pheno_scores_type, Type == "SKCM")
+
+blca_scores$Phenotype <- as.factor(blca_scores$Phenotype)
+# Set a number of 'empty bar' to add at the end of each group
+empty_bar <- 1
+to_add <- data.frame( matrix(NA, empty_bar*nlevels(blca_scores$Phenotype), ncol(blca_scores)) )
+colnames(to_add) <- colnames(blca_scores)
+to_add$Group <- rep(levels(blca_scores$Phenotype), each=empty_bar)
+#df_pheno_msk <- rbind(df_pheno_msk, to_add)
+blca_scores <- blca_scores %>% arrange(Phenotype)
+blca_scores$id <- seq(1, nrow(blca_scores))
+
+# Get the name and the y position of each label
+label_data <- blca_scores
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar     # I substract 0.5 because the letter must have the angle of the center of the bars. Not extreme right(1) or extreme left (0)
+label_data$hjust <- ifelse( angle < -90, 1, 0)
+label_data$angle <- ifelse(angle < -90, angle+180, angle)
+
+
+# prepare a data frame for base lines
+base_data <- blca_scores %>% 
+  group_by(Phenotype) %>% 
+  dplyr::summarize(start=min(id), end=max(id) - empty_bar) %>% 
+  rowwise() %>% 
+  mutate(title=mean(c(start, end)))
+
+# prepare a data frame for grid (scales)
+grid_data <- base_data
+grid_data$end <- grid_data$end[ c( nrow(grid_data), 1:nrow(grid_data)-1)] + 1
+grid_data$start <- grid_data$start - 1
+grid_data <- grid_data[-1,]
+
+
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(11)
+
+
+
+p_skcm <- ggplot(blca_scores, aes(x=as.factor(id), y=Mean_Sscore, fill=Phenotype)) +  
+  geom_col(aes(x=as.factor(id), y=Mean_Score, fill=Phenotype), position = "dodge2") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = unit(rep(-1,4), "cm")
+  ) +
+  coord_polar() +
+  scale_fill_manual(values = mycolors) 
+p_skcm
+```
+```{r}
+blca_scores <- subset(pheno_scores_type, Type == "GBM")
+
+blca_scores$Phenotype <- as.factor(blca_scores$Phenotype)
+# Set a number of 'empty bar' to add at the end of each group
+empty_bar <- 1
+to_add <- data.frame( matrix(NA, empty_bar*nlevels(blca_scores$Phenotype), ncol(blca_scores)) )
+colnames(to_add) <- colnames(blca_scores)
+to_add$Group <- rep(levels(blca_scores$Phenotype), each=empty_bar)
+#df_pheno_msk <- rbind(df_pheno_msk, to_add)
+blca_scores <- blca_scores %>% arrange(Phenotype)
+blca_scores$id <- seq(1, nrow(blca_scores))
+
+# Get the name and the y position of each label
+label_data <- blca_scores
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar     # I substract 0.5 because the letter must have the angle of the center of the bars. Not extreme right(1) or extreme left (0)
+label_data$hjust <- ifelse( angle < -90, 1, 0)
+label_data$angle <- ifelse(angle < -90, angle+180, angle)
+
+
+# prepare a data frame for base lines
+base_data <- blca_scores %>% 
+  group_by(Phenotype) %>% 
+  dplyr::summarize(start=min(id), end=max(id) - empty_bar) %>% 
+  rowwise() %>% 
+  mutate(title=mean(c(start, end)))
+
+# prepare a data frame for grid (scales)
+grid_data <- base_data
+grid_data$end <- grid_data$end[ c( nrow(grid_data), 1:nrow(grid_data)-1)] + 1
+grid_data$start <- grid_data$start - 1
+grid_data <- grid_data[-1,]
+
+
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(11)
+blca_scores$minmax <- (blca_scores$Mean_Score - min(blca_scores$Mean_Score)) / (max(blca_scores$Mean_Score) - min(blca_scores$Mean_Score))
+
+
+p_gbm <- ggplot(blca_scores, aes(x=as.factor(id), y=Mean_Sscore, fill=Phenotype)) +  
+  geom_col(aes(x=as.factor(id), y=Mean_Score, fill=Phenotype), position = "dodge2") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = unit(rep(-1,4), "cm")
+  ) +
+  coord_polar() +
+  scale_fill_manual(values = mycolors) 
+p_gbm
+```
+```{r}
+blca_scores <- subset(pheno_scores_type, Type == "THCA")
+
+blca_scores$Phenotype <- as.factor(blca_scores$Phenotype)
+# Set a number of 'empty bar' to add at the end of each group
+empty_bar <- 1
+to_add <- data.frame( matrix(NA, empty_bar*nlevels(blca_scores$Phenotype), ncol(blca_scores)) )
+colnames(to_add) <- colnames(blca_scores)
+to_add$Group <- rep(levels(blca_scores$Phenotype), each=empty_bar)
+#df_pheno_msk <- rbind(df_pheno_msk, to_add)
+blca_scores <- blca_scores %>% arrange(Phenotype)
+blca_scores$id <- seq(1, nrow(blca_scores))
+
+# Get the name and the y position of each label
+label_data <- blca_scores
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar     # I substract 0.5 because the letter must have the angle of the center of the bars. Not extreme right(1) or extreme left (0)
+label_data$hjust <- ifelse( angle < -90, 1, 0)
+label_data$angle <- ifelse(angle < -90, angle+180, angle)
+
+
+# prepare a data frame for base lines
+base_data <- blca_scores %>% 
+  group_by(Phenotype) %>% 
+  dplyr::summarize(start=min(id), end=max(id) - empty_bar) %>% 
+  rowwise() %>% 
+  mutate(title=mean(c(start, end)))
+
+# prepare a data frame for grid (scales)
+grid_data <- base_data
+grid_data$end <- grid_data$end[ c( nrow(grid_data), 1:nrow(grid_data)-1)] + 1
+grid_data$start <- grid_data$start - 1
+grid_data <- grid_data[-1,]
+
+
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(11)
+
+blca_scores$minmax <- (blca_scores$Mean_Score - min(blca_scores$Mean_Score)) / (max(blca_scores$Mean_Score) - min(blca_scores$Mean_Score))
+
+p_thca <- ggplot(blca_scores, aes(x=as.factor(id), y=Mean_Sscore, fill=Phenotype)) +  
+  geom_col(aes(x=as.factor(id), y=Mean_Score, fill=Phenotype), position = "dodge2") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = unit(rep(-1,4), "cm")
+  ) +
+  coord_polar() +
+  scale_fill_manual(values = mycolors) 
+p_thca
+```
+
+```{r}
+blca_scores <- subset(pheno_scores_type, Type == "OV")
+
+blca_scores$Phenotype <- as.factor(blca_scores$Phenotype)
+# Set a number of 'empty bar' to add at the end of each group
+empty_bar <- 1
+to_add <- data.frame( matrix(NA, empty_bar*nlevels(blca_scores$Phenotype), ncol(blca_scores)) )
+colnames(to_add) <- colnames(blca_scores)
+to_add$Group <- rep(levels(blca_scores$Phenotype), each=empty_bar)
+#df_pheno_msk <- rbind(df_pheno_msk, to_add)
+blca_scores <- blca_scores %>% arrange(Phenotype)
+blca_scores$id <- seq(1, nrow(blca_scores))
+
+# Get the name and the y position of each label
+label_data <- blca_scores
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar     # I substract 0.5 because the letter must have the angle of the center of the bars. Not extreme right(1) or extreme left (0)
+label_data$hjust <- ifelse( angle < -90, 1, 0)
+label_data$angle <- ifelse(angle < -90, angle+180, angle)
+
+
+# prepare a data frame for base lines
+base_data <- blca_scores %>% 
+  group_by(Phenotype) %>% 
+  dplyr::summarize(start=min(id), end=max(id) - empty_bar) %>% 
+  rowwise() %>% 
+  mutate(title=mean(c(start, end)))
+
+# prepare a data frame for grid (scales)
+grid_data <- base_data
+grid_data$end <- grid_data$end[ c( nrow(grid_data), 1:nrow(grid_data)-1)] + 1
+grid_data$start <- grid_data$start - 1
+grid_data <- grid_data[-1,]
+
+
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(11)
+
+
+
+p_ov <- ggplot(blca_scores, aes(x=as.factor(id), y=Mean_Sscore, fill=Phenotype)) +  
+  geom_col(aes(x=as.factor(id), y=Mean_Score, fill=Phenotype), position = "dodge2") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = unit(rep(-1,4), "cm")
+  ) +
+  coord_polar() +
+  scale_fill_manual(values = mycolors) 
+p_ov
+```
+```{r}
+ggarrange(p_brca, p_thca, p_cesc, p_gbm, p_luad, p_prad,
+          ncol = 1, nrow = 6, common.legend = TRUE, legend = "right")
+```
+
+
+```{r}
+fig2AB <- ggarrange(NULL, pathway_cor, NULL, gene_numbers_plot, ncol = 4, nrow = 1, labels = c("A","", "B"), common.legend = TRUE,
+                    font.label = list(size = 30), legend = "bottom", widths = c(0.1, 1, 0.1, 1))
+fig2C <- ggarrange(all_toppaths, ncol = 1, nrow = 1, labels = c("C"), legend = "top",
+                    font.label = list(size = 30))
+
+
+fig2D <- ggarrange(NULL, hallmark_gene_lollipop, kegg_gene_lollipop, NULL, reactome_gene_lollipop, c7_gene_lollipop,
+                   ncol = 3, nrow = 2, align = "hv", labels = c("D"), font.label = list(size = 30),
+                   widths = c(0.2, 1, 1))
+```
+
+
+```{r}
+fig2ABD <- ggarrange(fig2AB, fig2D, nrow = 2, ncol = 1, heights = c(0.75,2))
+fig2 <- ggarrange(fig2ABD, fig2C, ncol = 2, nrow = 1, widths = c(1,1.25))
+# saved svg 3500 x 2000
+```
+
+
+
+
+```{r}
+fig2D1 <- ggarrange(hallmark_upset, kegg_upset, reactome_upset,
+                      ncol = 3, nrow = 1, hjust = 0.1, align = "v", widths = c(0.75,1,4), 
+                      labels = c("D"),
+                      font.label = list(size = 30))
+
+
+fig2D <- ggarrange(fig2D1, c7_upset,
+                      ncol = 1, nrow = 2, align = "v")
+fig2 <- ggarrange(fig2ABC, fig2D, ncol = 2, nrow = 1, widths = c(3,4))
+# saved .svg 3750 x 3000
+```
+
+
+

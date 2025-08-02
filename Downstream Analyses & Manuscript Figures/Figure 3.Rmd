@@ -1,0 +1,380 @@
+---
+title: "Figure 3 v2"
+author: "S. Grant"
+date: "2025-05-16"
+output: html_document
+---
+
+```{r}
+lung_scores <- read.csv("~//Documents//Survival VAE//lung_top_predicted_0.25.csv")[,-1]
+lung_clin <- read.csv("~//Documents//Survival VAE//lung_clin_top_0.25.csv")[,-1]
+
+breast_scores <- read.csv("~//Documents//Survival VAE//breast_top_predicted_0.25.csv")[,-1]
+breast_clin <- read.csv("~//Documents//Survival VAE//breast_clin_top_0.25.csv")[,-1]
+
+brain_scores <- read.csv("~//Documents//Survival VAE//brain_top_predicted_0.25.csv")[,-1]
+brain_clin <- read.csv("~//Documents//Survival VAE//brain_clin_top_0.25.csv")[,-1]
+```
+
+```{r}
+breast_val_reactome <- read.csv("~//Documents//Survival VAE//Validation Data//Reactome_CPTAC_Scores.csv")[,-1]
+breast_val_hallmark <- read.csv("~//Documents//Survival VAE//Validation Data//Hallmark_CPTAC_Scores.csv")[,-1]
+breast_val_c7 <- read.csv("~//Documents//Survival VAE//Validation Data//KEGG_CPTAC_Scores.csv")[,-1]
+breast_val_kegg <- read.csv("~//Documents//Survival VAE//Validation Data//C7_CPTAC_Scores.csv")[,-1]
+
+breast_val <- cbind(breast_val_kegg, breast_val_c7, breast_val_hallmark, breast_val_reactome[,-1])
+```
+
+```{r}
+lung_val_reactome <- read.csv("~//Documents//Survival VAE//Validation Data//Lung_Reactome_CPTAC_Scores.csv")[,-1]
+lung_val_hallmark <- read.csv("~//Documents//Survival VAE//Validation Data//Lung_Hallmark_CPTAC_Scores.csv")[,-1]
+lung_val_c7 <- read.csv("~//Documents//Survival VAE//Validation Data//Lung_KEGG_CPTAC_Scores.csv")[,-1]
+lung_val_kegg <- read.csv("~//Documents//Survival VAE//Validation Data//Lung_C7_CPTAC_Scores.csv")[,-1]
+
+lung_val <- cbind(lung_val_kegg, lung_val_c7, lung_val_hallmark, lung_val_reactome[,-1])
+```
+
+```{r}
+brain_val_reactome <- read.csv("~//Documents//Survival VAE//Validation Data//Brain_Reactome_CPTAC_Scores.csv")[,-1]
+brain_val_hallmark <- read.csv("~//Documents//Survival VAE//Validation Data//Brain_Hallmark_CPTAC_Scores.csv")[,-1]
+brain_val_c7 <- read.csv("~//Documents//Survival VAE//Validation Data//Brain_KEGG_CPTAC_Scores.csv")[,-1]
+brain_val_kegg <- read.csv("~//Documents//Survival VAE//Validation Data//Brain_C7_CPTAC_Scores.csv")[,-1]
+
+brain_val <- cbind(brain_val_kegg, brain_val_c7, brain_val_hallmark, brain_val_reactome[,-1])
+```
+
+
+```{r}
+breast_scores$Type <- "Breast Cancer"
+brain_scores$Type <- "Brain Cancer"
+lung_scores$Type <- "Lung Cancer"
+shared_pathways <- intersect(colnames(lung_scores), colnames(breast_scores))
+shared_pathways <- intersect(shared_pathways, colnames(brain_scores))
+
+breast_scores <- breast_scores[,shared_pathways]
+brain_scores <- brain_scores[,shared_pathways]
+lung_scores <- lung_scores[,shared_pathways]
+
+all_scores <- rbind(breast_scores, brain_scores, lung_scores)[,-1]
+```
+
+```{r}
+breast_val$Type <- "Breast Cancer"
+brain_val$Type <- "Brain Cancer"
+lung_val$Type <- "Lung Cancer"
+
+breast_val <- breast_val[,shared_pathways]
+brain_val <- brain_val[,shared_pathways]
+lung_val <- lung_val[,shared_pathways]
+
+all_val <- rbind(breast_val, brain_val, lung_val)[,-1]
+```
+
+```{r}
+set.seed(1)
+umap <- umap(all_scores[,-ncol(all_scores)])
+```
+```{r}
+umap_df <- data.frame("UMAP1" = umap$layout[,1], "UMAP2" = umap$layout[,2], "Type" = all_scores$Type)
+
+ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = Type)) +
+  geom_point(size = 0.75) +
+  scale_color_manual(values = c("#D81B60", "#1E88E5", "#FFC107")) +
+  theme_classic()
+```
+```{r}
+set.seed(1)
+umap_val <- umap(all_val[,-ncol(all_val)])
+```
+```{r}
+umap_df <- data.frame("UMAP1" = umap_val$layout[,1], "UMAP2" = umap_val$layout[,2], "Type" = all_val$Type)
+
+ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = Type)) +
+  geom_point(size = 0.75) +
+  scale_color_manual(values = c("#D81B60", "#1E88E5", "#FFC107")) +
+  theme_classic()
+```
+
+```{r}
+all_scores$Dataset <- "Test"
+all_val$Dataset <- "Validation"
+all_data <- rbind(all_scores, all_val)
+set.seed(1)
+umap_val <- umap(all_data[,-c(ncol(all_data)-1, ncol(all_data))])
+```
+```{r}
+umap_df <- data.frame("UMAP1" = umap_val$layout[,1], "UMAP2" = umap_val$layout[,2], "Type" = all_data$Type, "Dataset" = all_data$Dataset)
+
+ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = Type)) +
+  geom_point(size = 1, aes(shape = Dataset)) +
+  scale_color_manual(values = c("#D81B60", "#1E88E5", "#FFC107")) +
+  theme_classic()
+```
+
+
+```{r}
+pca <- prcomp(all_scores[,-c(ncol(all_scores)-1,ncol(all_scores))], center = TRUE, scale = TRUE)
+
+pca_df <- data.frame("PC1" = pca$x[,1], "PC2" = pca$x[,2], "Type" = all_scores$Type)
+```
+
+```{r}
+loadings <- as.data.frame(pca$rotation)
+loadings$Pathway <- rownames(loadings)
+loadings <- loadings[order(-abs(loadings$PC1)),]
+pc1_top <- c(rownames(loadings)[which.max(loadings$PC1)], rownames(loadings)[which.min(loadings$PC1)])
+loadings <- loadings[order(-abs(loadings$PC2)),]
+pc2_top <- c(rownames(loadings)[which.max(loadings$PC2)], rownames(loadings)[which.min(loadings$PC2)])
+
+pc_keep <- c(pc1_top, pc2_top)
+
+loadings <- loadings[pc_keep,]
+```
+
+
+```{r}
+ggplot(pca_df, aes(x = PC1, y = PC2, color = Type)) +
+  geom_point() +
+  theme_classic() +
+  scale_color_manual(values = c("#D81B60", "#1E88E5", "#FFC107")) +
+          geom_segment(
+                    data = loadings, aes(
+                              x = 0, y = 0,
+                              xend = PC1*200 , yend = PC2*200
+                    ),
+                    arrow = arrow(length = unit(0.2, "cm"), type = "open", angle = 25),
+                    size = 0.75, color = "black"
+          ) 
+  #annotate("text", label = "GSE13547_WT_VS_ZFX_KO_BCELL_ANTI_IGM_STIM_2H_UP", x = 10, y = 2, size = 3, color = "black") +
+  #annotate("text", label = "GSE32986_UNSTIM_VS_CURDLAN_HIGHDOSE_STIM_DC_DN", x = -50, y = 0, size = 3, color = "black") +
+  #annotate("text", label = "GSE14000_UNSTIM_VS_4H_LPS_DC_UP", x = -25, y = 18, size = 3, color = "black") +
+  #annotate("text", label = "GSE12366_NAIVE_VS_MEMORY_BCELL_DN", x = -25, y = -20, size = 3, color = "black")
+```
+```{r}
+lung_scores <- read.csv("~//Documents//Survival VAE//lung_top_predicted_0.25.csv")[,-1]
+lung_clin <- read.csv("~//Documents//Survival VAE//lung_clin_top_0.25.csv")[,-1]
+
+breast_scores <- read.csv("~//Documents//Survival VAE//breast_top_predicted_0.25.csv")[,-1]
+breast_clin <- read.csv("~//Documents//Survival VAE//breast_clin_top_0.25.csv")[,-1]
+
+brain_scores <- read.csv("~//Documents//Survival VAE//brain_top_predicted_0.25.csv")[,-1]
+brain_clin <- read.csv("~//Documents//Survival VAE//brain_clin_top_0.25.csv")[,-1]
+```
+
+```{r}
+lung.pca <- prcomp(lung_scores[,-1], center = TRUE, scale = TRUE)
+
+pca_df <- data.frame("PC1" = lung.pca$x[,1], "PC2" = lung.pca$x[,2], "Type" = lung_clin$Subtype)
+```
+```{r}
+loadings <- as.data.frame(lung.pca$rotation)
+loadings$Pathway <- rownames(loadings)
+loadings <- loadings[order(-abs(loadings$PC1)),]
+pc1_top <- c(rownames(loadings)[which.max(loadings$PC1)], rownames(loadings)[which.min(loadings$PC1)])
+loadings <- loadings[order(-abs(loadings$PC2)),]
+pc2_top <- c(rownames(loadings)[which.max(loadings$PC2)], rownames(loadings)[which.min(loadings$PC2)])
+
+pc_keep <- c(pc1_top, pc2_top)
+
+loadings <- loadings[pc_keep,]
+pc_keep
+```
+
+```{r}
+ggplot(pca_df, aes(x = PC1, y = PC2, color = Type)) +
+  geom_point() +
+  theme_classic() +
+  scale_color_manual(values = c("#D81B60", "#1E88E5")) 
+```
+```{r}
+lung_pca <- t(lung_scores[,-1])
+colnames(lung_pca) <- lung_scores$PatientID
+rownames(lung_clin) <- lung_clin$PatientID
+p <- pca(lung_pca, metadata = lung_clin,  removeVar = 0.1)
+```
+```{r}
+lung_biplot <-  biplot(p,
+    x = 'PC1', y = 'PC2',
+    lab = NULL,
+    colby = 'Subtype',
+    shape = 'Subtype',
+    hline = 0, vline = 0,
+    legendPosition = 'right',
+    pointSize = 2) +
+  theme_classic() +
+  theme(legend.position = "top")+
+  scale_color_manual(values = c("#D81B60", "#1E88E5")) 
+```
+```{r}
+lung_plotloadings <- plotloadings(p,
+    components = getComponents(p, c(1,2)), labSize = 2, rangeRetain = 0.01, legendPosition = "none",
+     shapeSizeRange = c(8,8), colConnectors = "black")+
+  scale_fill_gradient(low = "#D81B60", high = "#1E88E5") + coord_flip()
+```
+```{r}
+load <- p$loadings[,c(1,2)]
+load <- load[order(-abs(load$PC1)),]
+pc1_load <- load[1:10,]
+
+load <- load[order(-abs(load$PC2)),]
+pc2_load <- load[1:10,]
+
+lung_loading_df <- data.frame("PC" = c(rep("PC1", nrow(pc1_load)), rep("PC2", nrow(pc2_load))),
+                         "Loading" = c(pc1_load$PC1, pc2_load$PC2),
+                         "Pathway" = c(row.names(pc1_load), row.names(pc2_load)),
+                         "Label_Position" = c(rep(1, nrow(pc1_load)), rep(2, nrow(pc2_load))),
+                         "Type" = "Lung Cancer")
+
+## remove reactome
+new_pathway <- c()
+for (i in 1:nrow(lung_loading_df)){
+  new_pathway <- c(new_pathway, substr(lung_loading_df$Pathway[i], 10, nchar(lung_loading_df$Pathway[i])))
+}
+lung_loading_df$Pathway <- new_pathway
+```
+
+```{r}
+set.seed(1)
+loading_plot <- ggplot(lung_loading_df, aes(x = Loading, y = PC)) +
+  geom_point(aes(fill = PC),size = 6,  color = "black", shape = 23) +
+  theme_classic() +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  scale_fill_manual(values = c("#D81B60", "#1E88E5")) +
+  ylab("Component Loading") +
+  xlab("Principal Component") +
+  theme(axis.text = element_text(size = 12), axis.title = element_text(size = 14),
+        legend.position = "none")
+  #geom_label_repel(aes(label = Pathway, y = Loading, x = Label_Position), hjust = 1, size = 3)
+  #geom_label_repel(aes(label = Pathway))
+loading_plot
+```
+
+
+
+```{r}
+breast_pca <- t(breast_scores[,-1])
+colnames(breast_pca) <- breast_scores$PatientID
+rownames(breast_clin) <- breast_clin$PATIENT_ID
+
+breast_clin <- subset(breast_clin, SUBTYPE %in% c("BRCA_Basal", "BRCA_Her2", "BRCA_LumA", "BRCA_LumB"))
+breast_pca <- breast_pca[,rownames(breast_clin)]
+p <- pca(breast_pca, metadata = breast_clin,  removeVar = 0.1)
+```
+```{r}
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(4)
+ breast_biplot <-  biplot(p,
+    x = 'PC1', y = 'PC2',
+    lab = NULL,
+    colby = 'SUBTYPE',
+    shape = 'SUBTYPE',
+    hline = 0, vline = 0,
+    legendPosition = 'right', pointSize = 2) +
+   
+  theme_classic() +
+   theme(legend.position = "top")+
+  scale_color_manual(values = c("#D81B60", "#1E88E5", "#FFC107", "#004D40"))
+```
+
+```{r}
+breast_plotloadings <- plotloadings(p,
+    components = getComponents(p, c(1,2)), labSize = 2, rangeRetain = 0.01, legendPosition = "none",
+     shapeSizeRange = c(8,8),colConnectors = "black")+
+  scale_fill_gradient(low = "#D81B60", high = "#1E88E5") + coord_flip()
+```
+```{r}
+load <- p$loadings[,c(1,2)]
+load <- load[order(-abs(load$PC1)),]
+pc1_load <- load[1:10,]
+
+load <- load[order(-abs(load$PC2)),]
+pc2_load <- load[1:10,]
+
+breast_loading_df <- data.frame("PC" = c(rep("PC1", nrow(pc1_load)), rep("PC2", nrow(pc2_load))),
+                         "Loading" = c(pc1_load$PC1, pc2_load$PC2),
+                         "Pathway" = c(row.names(pc1_load), row.names(pc2_load)),
+                         "Label_Position" = c(rep(1, nrow(pc1_load)), rep(2, nrow(pc2_load))),
+                         "Type" = "Breast Cancer")
+
+```
+
+```{r}
+set.seed(1)
+loading_plot <- ggplot(breast_loading_df, aes(y = Loading, x = PC)) +
+  geom_point(aes(fill = PC),size = 6,  color = "black", shape = 23) +
+  theme_classic() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  scale_fill_manual(values = c("#D81B60", "#1E88E5")) +
+  ylab("Component Loading") +
+  xlab("Principal Component") +
+  theme(axis.text = element_text(size = 12), axis.title = element_text(size = 14),
+        legend.position = "none")
+  #geom_label_repel(aes(label = Pathway, y = Loading, x = Label_Position), hjust = 1, size = 3)
+  #geom_label_repel(aes(label = Pathway))
+loading_plot
+```
+
+
+```{r}
+brain_pca <- t(brain_scores[,-1])
+colnames(brain_pca) <- brain_scores$PatientID
+rownames(brain_clin) <- brain_clin$PatientID
+
+p <- pca(brain_pca, metadata = brain_clin,  removeVar = 0.1)
+```
+
+```{r}
+mycolors <- colorRampPalette(c("#D81B60", "#1E88E5", "#FFC107"))(4)
+
+brain_biplot <-   biplot(p,
+    x = 'PC1', y = 'PC2',
+    lab = NULL,
+    colby = 'Subtype',
+    shape = 'Subtype',
+    hline = 0, vline = 0,
+    legendPosition = 'right', pointSize = 2) +
+  theme_classic() +
+  theme(legend.position = "top")+
+  scale_color_manual(values = c("#D81B60", "#1E88E5", "#FFC107", "#004D40"))
+```
+```{r}
+brain_plotloadings <- plotloadings(p,
+    components = getComponents(p, c(1,2)), labSize = 2, rangeRetain = 0.01, legendPosition = "none",
+      shapeSizeRange = c(8,8),colConnectors = "black")+
+  scale_fill_gradient(low = "#D81B60", high = "#1E88E5") + coord_flip()
+```
+```{r}
+load <- p$loadings[,c(1,2)]
+load <- load[order(-abs(load$PC1)),]
+pc1_load <- load[1:10,]
+
+load <- load[order(-abs(load$PC2)),]
+pc2_load <- load[1:10,]
+
+brain_loading_df <- data.frame("PC" = c(rep("PC1", nrow(pc1_load)), rep("PC2", nrow(pc2_load))),
+                         "Loading" = c(pc1_load$PC1, pc2_load$PC2),
+                         "Pathway" = c(row.names(pc1_load), row.names(pc2_load)),
+                         "Label_Position" = c(rep(1, nrow(pc1_load)), rep(2, nrow(pc2_load))),
+                         "Type" = "Brain Cancer")
+
+```
+
+```{r}
+set.seed(1)
+loading_plot <- ggplot(brain_loading_df, aes(y = Loading, x = PC)) +
+  geom_point(aes(fill = PC),size = 6,  color = "black", shape = 23) +
+  theme_classic() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  scale_fill_manual(values = c("#D81B60", "#1E88E5")) +
+  ylab("Component Loading") +
+  xlab("Principal Component") +
+  theme(axis.text = element_text(size = 12), axis.title = element_text(size = 14),
+        legend.position = "none")
+  #geom_label_repel(aes(label = Pathway, y = Loading, x = Label_Position), hjust = 1, size = 3)
+  #geom_label_repel(aes(label = Pathway))
+loading_plot
+```
+
+```{r}
+ggarrange(breast_biplot, lung_biplot, brain_biplot,
+          ncol = 1, nrow = 3, align = "hv")
+```
